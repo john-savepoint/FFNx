@@ -554,18 +554,9 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
         default:
           if(!kanjiDetected)
           {
-            // Check if buffer_text is within keyboard name table range (VA 0x91B5D8 - 0x91BD40)
-            // If so, use English font (usfont) for ASCII keyboard labels
-            uintptr_t ptr_addr = reinterpret_cast<uintptr_t>(buffer_text);
-            if (ptr_addr >= 0x91B5D8 && ptr_addr <= 0x91BD40) {
-              graphics_object = *ff7_externals.menu_font_a_graphics_object_DC100C;
-              charWidth = 12; // Standard width for usfont
-              leftPadding = 0;
-            } else {
-              graphics_object = ff7_externals.menu_jafont_1_graphics_object;
-              charWidth = charWidthData[0][*buffer_text] & 0x1F;
-              leftPadding = charWidthData[0][*buffer_text] >> 5;
-            }
+            graphics_object = ff7_externals.menu_jafont_1_graphics_object;
+            charWidth = charWidthData[0][*buffer_text] & 0x1F;
+            leftPadding = charWidthData[0][*buffer_text] >> 5;
           }
           kanjiDetected = false;
           break;
@@ -1004,9 +995,18 @@ int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_sha
       //offset_text_spacing = 1092;
       goto LABEL_9;
     default:
-      character_graphics_object = ff7_externals.menu_jafont_1_graphics_object;
-      charWidth = charWidthData[0][*p_letter] & 0x1F;
-      leftPadding = charWidthData[0][*p_letter] >> 5;
+      // Check if we're in config menu (index 8) AND character is ASCII printable (0x20-0x7E)
+      // If so, use usfont for keyboard labels instead of jafont_1
+      if (ff7_externals.dword_DC12EC && *ff7_externals.dword_DC12EC == 8 &&
+          (byte)letter >= 0x20 && (byte)letter <= 0x7E) {
+        character_graphics_object = *ff7_externals.menu_font_a_graphics_object_DC100C;
+        charWidth = 12; // Standard width for usfont ASCII
+        leftPadding = 0;
+      } else {
+        character_graphics_object = ff7_externals.menu_jafont_1_graphics_object;
+        charWidth = charWidthData[0][*p_letter] & 0x1F;
+        leftPadding = charWidthData[0][*p_letter] >> 5;
+      }
       break;
   }
 
