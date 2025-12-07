@@ -554,9 +554,18 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
         default:
           if(!kanjiDetected)
           {
-            graphics_object = ff7_externals.menu_jafont_1_graphics_object;
-            charWidth = charWidthData[0][*buffer_text] & 0x1F;
-            leftPadding = charWidthData[0][*buffer_text] >> 5;
+            // Check if buffer_text is within keyboard name table range (VA 0x91B5D8 - 0x91BD40)
+            // If so, use English font (usfont) for ASCII keyboard labels
+            uintptr_t ptr_addr = reinterpret_cast<uintptr_t>(buffer_text);
+            if (ptr_addr >= 0x91B5D8 && ptr_addr <= 0x91BD40) {
+              graphics_object = *ff7_externals.menu_font_a_graphics_object_DC100C;
+              charWidth = 12; // Standard width for usfont
+              leftPadding = 0;
+            } else {
+              graphics_object = ff7_externals.menu_jafont_1_graphics_object;
+              charWidth = charWidthData[0][*buffer_text] & 0x1F;
+              leftPadding = charWidthData[0][*buffer_text] >> 5;
+            }
           }
           kanjiDetected = false;
           break;
