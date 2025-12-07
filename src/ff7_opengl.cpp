@@ -365,8 +365,13 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	// ###########################
 	// japanese text
 	// ###########################
+	ffnx_info("DEBUG: ff7_japanese_edition = %d\n", ff7_japanese_edition);
 	if (ff7_japanese_edition)
 	{
+		ffnx_info("DEBUG: Installing Japanese text hooks!\n");
+		ffnx_info("DEBUG: field_submit_draw_text_640x480_6E706D = 0x%X\n", ff7_externals.field_submit_draw_text_640x480_6E706D);
+		ffnx_info("DEBUG: field_submit_and_draw_text_box_and_text_6EBF2C = 0x%X\n", ff7_externals.field_submit_and_draw_text_box_and_text_6EBF2C);
+		ffnx_info("DEBUG: common_submit_draw_char_from_buffer_6F564E = 0x%X\n", ff7_externals.common_submit_draw_char_from_buffer_6F564E);
 		replace_function(ff7_externals.field_submit_draw_text_640x480_6E706D, field_submit_draw_text_640x480_6E706D_jp);
 		replace_function((uint32_t)ff7_externals.engine_load_menu_graphics_objects_6C1468, engine_load_menu_graphics_objects_6C1468_jp);
 		replace_function((uint32_t)ff7_externals.field_draw_text_boxes_and_text_graphics_object_6ECA68, field_draw_text_boxes_and_text_graphics_object_6ECA68_jp);

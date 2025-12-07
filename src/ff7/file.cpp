@@ -26,17 +26,33 @@
 #include "../ff7.h"
 #include "../log.h"
 #include "../redirect.h"
+#include "../globals.h"
 
 FILE *open_lgp_file(char *filename, uint32_t mode)
 {
 	char _filename[260]{ 0 };
 	if(trace_all || trace_files) ffnx_trace("opening lgp file %s\n", filename);
 
-	int redirect_status = attempt_redirection(filename, _filename, sizeof(_filename));
+	// For Japanese edition, redirect menu_us.lgp to menu_ja.lgp
+	char modified_filename[260]{ 0 };
+	strcpy(modified_filename, filename);
+	if(ff7_japanese_edition)
+	{
+		// Check if this is menu_us.lgp and redirect to menu_ja.lgp
+		char* menu_us_pos = strstr(modified_filename, "menu_us.lgp");
+		if(menu_us_pos != NULL)
+		{
+			// Replace "menu_us" with "menu_ja"
+			memcpy(menu_us_pos, "menu_ja", 7);
+			if(trace_all || trace_files) ffnx_trace("Japanese edition: redirecting menu LGP to %s\n", modified_filename);
+		}
+	}
+
+	int redirect_status = attempt_redirection(modified_filename, _filename, sizeof(_filename));
 
 	if (redirect_status == -1)
 	{
-		strcpy(_filename, filename);
+		strcpy(_filename, modified_filename);
 	}
 
 	return fopen(_filename, "rb");
@@ -229,6 +245,18 @@ struct lgp_file *lgp_open_file(char *filename, uint32_t lgp_num)
 		{
 			switch (lgp_num) {
 				case 4: // menu
+					// For Japanese edition, try menu_ja.lgp first
+					if(ff7_japanese_edition)
+					{
+						_snprintf(tmp, sizeof(tmp), "%s/%s/%s_ja.lgp/%s%s", basedir, direct_mode_path.c_str(), lgp_names[lgp_num], fname, ext);
+						ret->fd = fopen(tmp, "rb");
+						if(ret->fd && (trace_all || trace_direct)) ffnx_trace("lgp_open_file: using Japanese menu LGP: %s\n", tmp);
+					}
+					if(!ret->fd)
+					{
+						_snprintf(tmp, sizeof(tmp), "%s/%s/%s_us.lgp/%s%s", basedir, direct_mode_path.c_str(), lgp_names[lgp_num], fname, ext);
+					}
+					break;
 				case 5: // world
 				case 15: // cr
 				case 16: // disc
@@ -239,7 +267,7 @@ struct lgp_file *lgp_open_file(char *filename, uint32_t lgp_num)
 					_snprintf(tmp, sizeof(tmp), "%s/%s/%s-us.lgp/%s%s", basedir, direct_mode_path.c_str(), lgp_names[lgp_num], fname, ext);
 					break;
 			}
-			ret->fd = fopen(tmp, "rb");
+			if(!ret->fd) ret->fd = fopen(tmp, "rb");
 		}
 
 		if(!ret->fd)

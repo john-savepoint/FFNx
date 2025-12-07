@@ -1,4 +1,4 @@
-# For a list of common variables see https://github.com/microsoft/vcpkg/blob/master/docs/maintainers/vcpkg_common_definitions.md
+﻿# For a list of common variables see https://github.com/microsoft/vcpkg/blob/master/docs/maintainers/vcpkg_common_definitions.md
 
 # Download source packages
 
@@ -14,13 +14,14 @@ vcpkg_from_github(OUT_SOURCE_PATH SOURCE_DIR
 set(SOLOUD_PROJNAME Static)
 set(GENIE_OPTIONS --with-miniaudio-only)
 
-if(VCPKG_CRT_LINKAGE STREQUAL dynamic)
-    set(SOLOUD_PROJNAME Dynamic)
-    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-dynamic-runtime)
-endif()
-if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
-    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-shared-lib)
-endif()
+# REMOVED: These options are not supported by this soloud version
+#if(VCPKG_CRT_LINKAGE STREQUAL dynamic)
+#    set(SOLOUD_PROJNAME Dynamic)
+#    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-dynamic-runtime)
+#endif()
+#if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
+#    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-shared-lib)
+#endif()
 
 if(VCPKG_TARGET_ARCHITECTURE STREQUAL x86)
     set(GENIE_OPTIONS ${GENIE_OPTIONS} --platform=x32)

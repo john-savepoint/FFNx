@@ -22,6 +22,7 @@
 
 #include "../ff7.h"
 #include "../log.h"
+#include "../globals.h"
 
 #define FF7_KERNEL_NUM_SECTIONS 27
 
@@ -64,6 +65,30 @@ char *kernel2_get_text(uint32_t section_base, uint32_t string_id, uint32_t secti
 
 void ff7_load_kernel2_wrapper(char *filename)
 {
+  // DEBUG: Log kernel2 load
+  ffnx_info("KERNEL2_LOAD: filename=%s, ff7_japanese_edition=%d\n", filename, ff7_japanese_edition);
+
+  // Japanese edition: try to load from lang-ja path
+  if (ff7_japanese_edition)
+  {
+    char ja_filename[260];
+    // Try lang-ja path: data/lang-ja/kernel/kernel2.bin
+    _snprintf(ja_filename, sizeof(ja_filename), "%s/data/lang-ja/kernel/kernel2.bin", basedir);
+
+    FILE* fd = fopen(ja_filename, "rb");
+    if (fd != NULL)
+    {
+      fclose(fd);
+      ffnx_info("KERNEL2_LOAD: Redirecting to Japanese kernel2: %s\n", ja_filename);
+      ff7_externals.kernel_load_kernel2(ja_filename);
+      return;
+    }
+    else
+    {
+      ffnx_warning("KERNEL2_LOAD: Japanese kernel2 not found at %s, using default\n", ja_filename);
+    }
+  }
+
   ff7_externals.kernel_load_kernel2(filename);
 
 	char chunk_file[1024]{0};
@@ -72,9 +97,27 @@ void ff7_load_kernel2_wrapper(char *filename)
 
 	for (int n = 0; n < FF7_KERNEL_NUM_SECTIONS; n++)
 	{
-		_snprintf(chunk_file, sizeof(chunk_file), "%s/%s/kernel/kernel.bin.chunk.%i", basedir, direct_mode_path.c_str(), n+1);
+		fd = NULL;
 
-		if ((fd = fopen(chunk_file, "rb")) != NULL)
+		// Japanese edition: try lang-ja path first
+		if (ff7_japanese_edition)
+		{
+			_snprintf(chunk_file, sizeof(chunk_file), "%s/data/lang-ja/kernel/kernel.bin.chunk.%i", basedir, n+1);
+			fd = fopen(chunk_file, "rb");
+			if (fd != NULL)
+			{
+				ffnx_info("KERNEL_CHUNK: Found Japanese chunk %i at %s\n", n+1, chunk_file);
+			}
+		}
+
+		// Fallback to direct mode path
+		if (fd == NULL)
+		{
+			_snprintf(chunk_file, sizeof(chunk_file), "%s/%s/kernel/kernel.bin.chunk.%i", basedir, direct_mode_path.c_str(), n+1);
+			fd = fopen(chunk_file, "rb");
+		}
+
+		if (fd != NULL)
 		{
 			fseek(fd, 0L, SEEK_END);
 			chunk_size = ftell(fd);
