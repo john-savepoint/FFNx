@@ -12,6 +12,15 @@
 //    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
 //    GNU General Public License for more details.                          //
 /****************************************************************************/
+
+// Japanese text rendering offset adjustment
+// These constants push text Right (X) and Down (Y) to correct alignment
+// Adjust these values if text appears misaligned on screen
+const float JA_TEXT_OFFSET_X = -1.0f;  // Push Left (pixels) - Menu/Battle (was 4, reduced by 5)
+const float JA_TEXT_OFFSET_Y = 3.0f;   // Push Down (pixels) - Menu/Battle (was 10, reduced to 3)
+const float JA_FIELD_OFFSET_X = 12.0f; // Push Right (pixels) - Field dialogue
+const float JA_FIELD_OFFSET_Y = 2.0f;  // Push Down (pixels) - Field dialogue
+
 #include "../globals.h"
 
 #include "../ff7.h"
@@ -544,8 +553,48 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
           leftPadding = charWidthData[4][*buffer_text] >> 5;
           continue;
         case 0xFEu:
-          ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
           ++buffer_text;
+          ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
+          // Check if this is a control code (color/animation) or jafont_6 character
+          if ( *buffer_text < 0xD2u )
+          {
+            // It's a jafont_6 character (< 0xD2)
+            graphics_object = ff7_externals.menu_jafont_6_graphics_object;
+            kanjiDetected = true;
+            charWidth = charWidthData[5][*buffer_text] & 0x1F;
+            leftPadding = charWidthData[5][*buffer_text] >> 5;
+            continue;
+          }
+          // It's a control code - handle colors and animations
+          ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
+          if ( *buffer_text < 0xDAu )
+          {
+            // Color codes 0xD2-0xD9: set text color (0=gray, 1=blue, ... 7=white)
+            (*ff7_externals.word_91F028) = *buffer_text++ - 210;
+            continue;
+          }
+          if ( *buffer_text == 0xDAu )
+          {
+            // 0xDA: Toggle blinking effect
+            (*ff7_externals.word_DC3CC0) ^= 1u;
+            ++buffer_text;
+            continue;
+          }
+          if ( *buffer_text == 0xDBu )
+          {
+            // 0xDB: Toggle rainbow/cycle effect
+            (*ff7_externals.word_DC3CC4) ^= 1u;
+            ++buffer_text;
+            continue;
+          }
+          if ( *buffer_text == 0xE9u )
+          {
+            // 0xE9: Toggle pause/wait effect
+            (*ff7_externals.dword_DC3CD4) ^= 1u;
+            ++buffer_text;
+            continue;
+          }
+          // Unknown control code - treat as jafont_6 character
           graphics_object = ff7_externals.menu_jafont_6_graphics_object;
           kanjiDetected = true;
           charWidth = charWidthData[5][*buffer_text] & 0x1F;
@@ -704,8 +753,8 @@ LABEL_39:
               character_v = (double)graphics_object_v_in_byte / 512.0;
               character_u_width = character_u_width_in_byte / 512.0;
               character_top_left = graphics_object->vertex_transform;
-              character_top_left->position.x = (float)character_x;
-              character_top_left->position.y = (float)character_y;
+              character_top_left->position.x = (float)character_x + JA_FIELD_OFFSET_X;
+              character_top_left->position.y = (float)character_y + JA_FIELD_OFFSET_Y;
               character_top_left->position.z = z_value;
               character_top_left->position.w = 1.0;
               character_top_left->color = color;
@@ -713,8 +762,8 @@ LABEL_39:
               character_top_left->u = character_u;
               character_top_left->v = character_v;
               character_bottom_left = graphics_object->vertex_transform + 1;
-              character_bottom_left->position.x = (float)character_x;
-              character_bottom_left->position.y = (double)character_y + 16;
+              character_bottom_left->position.x = (float)character_x + JA_FIELD_OFFSET_X;
+              character_bottom_left->position.y = (double)character_y + 16 + JA_FIELD_OFFSET_Y;
               character_bottom_left->position.z = z_value;
               character_bottom_left->position.w = 1.0;
               character_bottom_left->color = color;
@@ -722,8 +771,8 @@ LABEL_39:
               character_bottom_left->u = character_u;
               character_bottom_left->v = character_v + 32.0f / 512.0f;
               character_top_right = graphics_object->vertex_transform + 2;
-              character_top_right->position.x = (double)character_x + (double)character_x_width;
-              character_top_right->position.y = (float)character_y;
+              character_top_right->position.x = (double)character_x + (double)character_x_width + JA_FIELD_OFFSET_X;
+              character_top_right->position.y = (float)character_y + JA_FIELD_OFFSET_Y;
               character_top_right->position.z = z_value;
               character_top_right->position.w = 1.0;
               character_top_right->color = color;
@@ -731,8 +780,8 @@ LABEL_39:
               character_top_right->u = character_u + character_u_width;
               character_top_right->v = character_v;
               character_bottom_right = graphics_object->vertex_transform + 3;
-              character_bottom_right->position.x = (double)character_x + (double)character_x_width;
-              character_bottom_right->position.y = (double)character_y + 16;
+              character_bottom_right->position.x = (double)character_x + (double)character_x_width + JA_FIELD_OFFSET_X;
+              character_bottom_right->position.y = (double)character_y + 16 + JA_FIELD_OFFSET_Y;
               character_bottom_right->position.z = z_value;
               character_bottom_right->position.w = 1.0;
               character_bottom_right->color = color;
@@ -1088,8 +1137,8 @@ LABEL_9:
         vertex_v = (double)image_v / 512.0f;
         vertex_u_width = image_u_width / 512.0f;
         top_left = character_graphics_object->vertex_transform;
-        top_left->position.x = (float)vertex_x;
-        top_left->position.y = (float)vertex_y;
+        top_left->position.x = (float)vertex_x + JA_TEXT_OFFSET_X;
+        top_left->position.y = (float)vertex_y + JA_TEXT_OFFSET_Y;
         top_left->position.z = z_value;
         top_left->position.w = 1.0;
         top_left->color = color;
@@ -1097,8 +1146,8 @@ LABEL_9:
         top_left->u = vertex_u;
         top_left->v = vertex_v;
         bottom_left = character_graphics_object->vertex_transform + 1;
-        bottom_left->position.x = (float)vertex_x;
-        bottom_left->position.y = (double)vertex_y + 16.0;
+        bottom_left->position.x = (float)vertex_x + JA_TEXT_OFFSET_X;
+        bottom_left->position.y = (double)vertex_y + 16.0 + JA_TEXT_OFFSET_Y;
         bottom_left->position.z = z_value;
         bottom_left->position.w = 1.0;
         bottom_left->color = color;
@@ -1106,8 +1155,8 @@ LABEL_9:
         bottom_left->u = vertex_u;
         bottom_left->v = vertex_v + 32.0f / 512.0f;
         top_right = character_graphics_object->vertex_transform + 2;
-        top_right->position.x = (double)vertex_x + (double)vertex_width;
-        top_right->position.y = (float)vertex_y;
+        top_right->position.x = (double)vertex_x + (double)vertex_width + JA_TEXT_OFFSET_X;
+        top_right->position.y = (float)vertex_y + JA_TEXT_OFFSET_Y;
         top_right->position.z = z_value;
         top_right->position.w = 1.0;
         top_right->color = color;
@@ -1115,8 +1164,8 @@ LABEL_9:
         top_right->u = vertex_u + vertex_u_width;
         top_right->v = vertex_v;
         bottom_right = character_graphics_object->vertex_transform + 3;
-        bottom_right->position.x = (double)vertex_x + (double)vertex_width;
-        bottom_right->position.y = (double)vertex_y + 16.0;
+        bottom_right->position.x = (double)vertex_x + (double)vertex_width + JA_TEXT_OFFSET_X;
+        bottom_right->position.y = (double)vertex_y + 16.0 + JA_TEXT_OFFSET_Y;
         bottom_right->position.z = z_value;
         bottom_right->position.w = 1.0;
         bottom_right->color = color;
@@ -1670,8 +1719,8 @@ LABEL_49:
             v99 = (double)v129 / 512.0;
             v98 = v137 / 512.0;
             v94 = a2->vertex_transform;
-            v94->position.x = (double)offset_x + (double)v108;
-            v94->position.y = (double)offset_y + (double)12;
+            v94->position.x = (double)offset_x + (double)v108 + JA_TEXT_OFFSET_X;
+            v94->position.y = (double)offset_y + (double)12 + JA_TEXT_OFFSET_Y;
             v94->position.z = 0.0;
             v94->position.w = 1.0;
             v94->color = color;
@@ -1679,8 +1728,8 @@ LABEL_49:
             v94->u = v102;
             v94->v = v99;
             v93 = a2->vertex_transform + 1;
-            v93->position.x = (double)offset_x + (double)v108;
-            v93->position.y = (double)offset_y + (double)12 + 16.0;
+            v93->position.x = (double)offset_x + (double)v108 + JA_TEXT_OFFSET_X;
+            v93->position.y = (double)offset_y + (double)12 + 16.0 + JA_TEXT_OFFSET_Y;
             v93->position.z = 0.0;
             v93->position.w = 1.0;
             v93->color = color;
@@ -1688,8 +1737,8 @@ LABEL_49:
             v93->u = v102;
             v93->v = v99 + 32.0f / 512.0f;
             v92 = a2->vertex_transform + 2;
-            v92->position.x = (double)offset_x + (double)v108 + (double)v126;
-            v92->position.y = (double)offset_y + (double)12;
+            v92->position.x = (double)offset_x + (double)v108 + (double)v126 + JA_TEXT_OFFSET_X;
+            v92->position.y = (double)offset_y + (double)12 + JA_TEXT_OFFSET_Y;
             v92->position.z = 0.0;
             v92->position.w = 1.0;
             v92->color = color;
@@ -1697,8 +1746,8 @@ LABEL_49:
             v92->u = v102 + v98;
             v92->v = v99;
             v91 = a2->vertex_transform + 3;
-            v91->position.x = (double)offset_x + (double)v108 + (double)v126;
-            v91->position.y = (double)offset_y + (double)12 + 16.0;
+            v91->position.x = (double)offset_x + (double)v108 + (double)v126 + JA_TEXT_OFFSET_X;
+            v91->position.y = (double)offset_y + (double)12 + 16.0 + JA_TEXT_OFFSET_Y;
             v91->position.z = 0.0;
             v91->position.w = 1.0;
             v91->color = color;
@@ -2257,8 +2306,11 @@ void auto_resize_text_box(int16_t WINDOW_ID, int16_t* pOutW, int16_t* pOutH)
 
 		W += leftPadding + std::ceil(0.5f * charWidth);
 	}
-	*pOutW = (std::max(maxW, W) + 40) / 2;
-	*pOutH = (std::max(maxH, H) + 50) / 2;
+	// Add field offset to window size calculation to prevent text spilling
+	// Multiply by 2 because the result is divided by 2
+	// Height padding increased to 66 for more top margin
+	*pOutW = (std::max(maxW, W) + 40 + (int)(JA_FIELD_OFFSET_X * 2)) / 2;
+	*pOutH = (std::max(maxH, H) + 66 + (int)(JA_FIELD_OFFSET_Y * 2)) / 2;
 }
 
 void field_text_box_window_opening_6317A9_jp(short WINDOW_ID)
