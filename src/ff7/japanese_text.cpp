@@ -25,6 +25,59 @@ const float JA_FIELD_OFFSET_Y = 2.0f;  // Push Down (pixels) - Field dialogue
 
 #include "../ff7.h"
 
+// Button placeholder labels for Japanese field text
+// Format: jafont_1 byte sequences for each button function
+// These are rendered when FD F0-FF codes are encountered in field dialogue
+// Based on default PC keyboard mappings
+
+// Helper structure for button label data
+struct ButtonLabelData {
+    const unsigned char* bytes;  // jafont_1 byte sequence
+    int length;                  // number of bytes
+};
+
+// Button label byte sequences (jafont_1 indices)
+// Verified against ff7_complete_mapping_compact.csv
+
+// Ｃキー (C key) - for Cancel button: Ｃ=0xB6, キ=0x4C, ー=0xD0
+static const unsigned char BUTTON_LABEL_CANCEL[] = { 0xB6, 0x4C, 0xD0 };
+
+// Ｘキー (X key) - for Switch button: Ｘ=0xCB, キ=0x4C, ー=0xD0
+static const unsigned char BUTTON_LABEL_SWITCH[] = { 0xCB, 0x4C, 0xD0 };
+
+// Ｖキー (V key) - for Menu button: Ｖ=0xC9, キ=0x4C, ー=0xD0
+static const unsigned char BUTTON_LABEL_MENU[] = { 0xC9, 0x4C, 0xD0 };
+
+// ＰＧＵＰ - Page Up for L1: Ｐ=0xC3, Ｇ=0xBA, Ｕ=0xC8, Ｐ=0xC3
+static const unsigned char BUTTON_LABEL_PAGEUP[] = { 0xC3, 0xBA, 0xC8, 0xC3 };
+
+// ＰＧＤＮ - Page Down for R1: Ｐ=0xC3, Ｇ=0xBA, Ｄ=0xB7, Ｎ=0xC1
+static const unsigned char BUTTON_LABEL_PAGEDN[] = { 0xC3, 0xBA, 0xB7, 0xC1 };
+
+// Ｚキー (Z key) - for Assist/Target: Ｚ=0xCD, キ=0x4C, ー=0xD0
+static const unsigned char BUTTON_LABEL_ASSIST[] = { 0xCD, 0x4C, 0xD0 };
+
+// Button placeholder mapping (F0-FF)
+// F0=OK, F1=Cancel, F2=Menu, F3=Switch, F4=PageUp, F5=PageDn, etc.
+static const ButtonLabelData buttonLabels[16] = {
+    { nullptr, 0 },                              // F0 - OK/Confirm (Enter - TODO)
+    { BUTTON_LABEL_CANCEL, sizeof(BUTTON_LABEL_CANCEL) },   // F1 - Cancel
+    { BUTTON_LABEL_MENU, sizeof(BUTTON_LABEL_MENU) },       // F2 - Menu
+    { BUTTON_LABEL_SWITCH, sizeof(BUTTON_LABEL_SWITCH) },   // F3 - Switch
+    { BUTTON_LABEL_PAGEUP, sizeof(BUTTON_LABEL_PAGEUP) },   // F4 - Page Up (L1)
+    { BUTTON_LABEL_PAGEDN, sizeof(BUTTON_LABEL_PAGEDN) },   // F5 - Page Down (R1)
+    { BUTTON_LABEL_ASSIST, sizeof(BUTTON_LABEL_ASSIST) },   // F6 - Assist
+    { nullptr, 0 },                              // F7 - R2
+    { nullptr, 0 },                              // F8 - Select
+    { nullptr, 0 },                              // F9 - Start
+    { nullptr, 0 },                              // FA - Up
+    { nullptr, 0 },                              // FB - Down
+    { nullptr, 0 },                              // FC - Left
+    { nullptr, 0 },                              // FD - Right
+    { nullptr, 0 },                              // FE - Unknown
+    { nullptr, 0 },                              // FF - Unknown
+};
+
 void engine_load_menu_graphics_objects_6C1468_jp(int a1)
 {
   unsigned int v1; // eax
@@ -333,7 +386,7 @@ int charWidthData[6][256] =
         24, 24, 21, 23, 24, 23, 21, 23, 22, 20, 24, 24, 24, 25, 11, 21,
         29, 14, 8, 23, 24, 21, 24, 24, 20, 19, 25, 22, 14, 16, 22, 18,
         27, 22, 26, 21, 27, 22, 21, 24, 22, 24, 31, 24, 23, 23, 14, 22,
-        28, 27, 27, 29, 30, 12, 25, 22, 11, 0, 27, 23, 23, 23, 12, 22,
+        28, 27, 27, 29, 30, 12, 25, 22, 11, 27, 27, 23, 23, 23, 12, 22, // pos 217 = heart ♥ (was 0, now 27)
         11, 23, 23, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
@@ -459,6 +512,11 @@ bgra_byte get_character_color(int n_shapes)
   return color;
 }
 
+// Static variables for button label injection
+static const unsigned char* buttonLabelBuffer = nullptr;
+static int buttonLabelIndex = 0;
+static int buttonLabelLength = 0;
+
 /////////////////////////////////////////////////////////////////////
 __int16 field_submit_draw_text_640x480_6E706D_jp(
         __int16 character_x,
@@ -499,6 +557,11 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
   int charWidth = 16;
   int leftPadding = 0;
 
+  // Reset button label injection state at start of text rendering
+  buttonLabelBuffer = nullptr;
+  buttonLabelIndex = 0;
+  buttonLabelLength = 0;
+
   character_count = 0;
   for ( i = 0;
         i < 1024
@@ -508,6 +571,42 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
      && *buffer_text != 0xE9;
         ++i )
   {
+    // Check if we're rendering from button label injection buffer
+    unsigned char effectiveChar = 0;
+    bool renderingFromButtonLabel = false;
+    if (buttonLabelBuffer != nullptr && buttonLabelIndex < buttonLabelLength)
+    {
+      // Render character from button label buffer
+      effectiveChar = buttonLabelBuffer[buttonLabelIndex];
+      ++buttonLabelIndex;
+      renderingFromButtonLabel = true;
+
+      // Set up for jafont_1 rendering
+      graphics_object = ff7_externals.menu_jafont_1_graphics_object;
+      kanjiDetected = false;
+      charWidth = charWidthData[0][effectiveChar] & 0x1F;
+      leftPadding = charWidthData[0][effectiveChar] >> 5;
+
+      // Calculate UV coordinates for the character
+      text_offset_spacing = 0;
+      graphics_object_v_in_byte = 0;
+      offset_u_in_byte = 32 * (effectiveChar % 16);
+      graphics_object_v_in_byte = 32 * (effectiveChar / 16);
+      current_character = effectiveChar;
+      character = effectiveChar;
+
+      // Skip to rendering section
+      goto RENDER_BUTTON_LABEL_CHAR;
+    }
+
+    // Check if button label is complete, clear the buffer
+    if (buttonLabelBuffer != nullptr && buttonLabelIndex >= buttonLabelLength)
+    {
+      buttonLabelBuffer = nullptr;
+      buttonLabelIndex = 0;
+      buttonLabelLength = 0;
+    }
+
     if ( *buffer_text == 231 )
     {
       character_x = (*ff7_externals.field_current_window_pos_x_DC3CB4) + 16;
@@ -547,6 +646,35 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
         case 0xFDu:
           ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
           ++buffer_text;
+          // Check if this is a button placeholder (F0-FF) or jafont_5 character
+          if ( *buffer_text >= 0xF0u )
+          {
+            // Button placeholder codes (FD F0 through FD FF)
+            // F0=OK, F1=Cancel, F2=Menu, F3=Switch, F4=PageUp, F5=PageDn, etc.
+            unsigned char placeholderCode = *buffer_text - 0xF0;
+            ++buffer_text;
+            ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
+
+            // Get the button label for this placeholder
+            if (placeholderCode < 16 && buttonLabels[placeholderCode].bytes != nullptr)
+            {
+              // Set up button label buffer for injection
+              buttonLabelBuffer = buttonLabels[placeholderCode].bytes;
+              buttonLabelIndex = 0;
+              buttonLabelLength = buttonLabels[placeholderCode].length;
+              // Reset color after button label (original game behavior)
+              // Button labels are colored, but text after should return to white
+              (*ff7_externals.word_91F028) = 7;  // White color (index 7)
+              // Continue to next iteration - the button label will be rendered
+              // via the injection mechanism at the start of the loop
+              continue;
+            }
+            else
+            {
+              // No label defined for this button, skip
+              continue;
+            }
+          }
           graphics_object = ff7_externals.menu_jafont_5_graphics_object;
           kanjiDetected = true;
           charWidth = charWidthData[4][*buffer_text] & 0x1F;
@@ -582,8 +710,8 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
           }
           if ( *buffer_text == 0xDBu )
           {
-            // 0xDB: Toggle rainbow/cycle effect
-            (*ff7_externals.word_DC3CC4) ^= 1u;
+            // 0xDB: Turn ON rainbow/cycle effect (original JP behavior: does not toggle off mid-text)
+            (*ff7_externals.word_DC3CC4) = 1;
             ++buffer_text;
             continue;
           }
@@ -679,6 +807,7 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
             text_offset_spacing = 0;
             graphics_object_v_in_byte = 0;
 LABEL_39:
+RENDER_BUTTON_LABEL_CHAR:
             if ( (*ff7_externals.word_DC3CC0) || (*ff7_externals.word_DC3CC4) )
             {
               if ( (*ff7_externals.word_DC3CC4) )
@@ -703,12 +832,17 @@ LABEL_39:
             {
               character_n_shapes = (*ff7_externals.word_91F028);
             }
-            current_character = *buffer_text;
-            character = current_character;
-            //if ( *buffer_text == 0xD2 || *buffer_text == 0xD3 )
-              //character = current_character - 78;
-            offset_u_in_byte = 32 * (character % 16);
-            graphics_object_v_in_byte += 32 * (character / 16);
+            // Skip character lookup when rendering from button label buffer
+            // (character, offset_u_in_byte, graphics_object_v_in_byte already set)
+            if (!renderingFromButtonLabel)
+            {
+              current_character = *buffer_text;
+              character = current_character;
+              //if ( *buffer_text == 0xD2 || *buffer_text == 0xD3 )
+                //character = current_character - 78;
+              offset_u_in_byte = 32 * (character % 16);
+              graphics_object_v_in_byte += 32 * (character / 16);
+            }
             /*if ( character_x
                - (*ff7_externals.field_current_window_pos_x_DC3CB4)
                + 2
