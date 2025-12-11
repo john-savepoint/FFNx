@@ -384,10 +384,10 @@ int charWidthData[6][256] =
         27, 29, 26, 28, 29, 27, 27, 24, 21, 22, 30, 27, 25, 31, 25, 26,
         29, 29, 29, 28, 25, 27, 25, 30, 26, 29, 25, 27, 23, 24, 24, 25,
         24, 24, 21, 23, 24, 23, 21, 23, 22, 20, 24, 24, 24, 25, 11, 21,
-        29, 14, 8, 23, 24, 21, 24, 24, 20, 19, 25, 22, 14, 16, 22, 18,
+        29, 29, 8, 23, 24, 21, 24, 24, 20, 19, 25, 22, 14, 16, 22, 18, // pos 176=『(29), pos 177=』(29, was 14)
         27, 22, 26, 21, 27, 22, 21, 24, 22, 24, 31, 24, 23, 23, 14, 22,
-        28, 27, 27, 29, 30, 12, 25, 22, 11, 27, 27, 23, 23, 23, 12, 22, // pos 217 = heart ♥ (was 0, now 27)
-        11, 23, 23, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        28, 27, 27, 29, 30, 12, 25, 22, 22, 27, 27, 23, 23, 23, 27, 22, // pos 215=【(22), pos 216=】(22), pos 217=♥(27), pos 221=「(23), pos 222=」(27, was 12)
+        22, 23, 23, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, // pos 224=）(22, was 11), pos 225=−(23), pos 226=＝(23)
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
     },{ // Jap - 1
@@ -610,7 +610,7 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
     if ( *buffer_text == 231 )
     {
       character_x = (*ff7_externals.field_current_window_pos_x_DC3CB4) + 16;
-      character_y += 32;
+      character_y += 32; // Line height - must stay 32 for cursor alignment (game calculates cursor Y from row * 32)
       ++buffer_text;
       ++ff7_externals.field_text_line_row_DC3CB8;
       ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
@@ -662,9 +662,9 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
               buttonLabelBuffer = buttonLabels[placeholderCode].bytes;
               buttonLabelIndex = 0;
               buttonLabelLength = buttonLabels[placeholderCode].length;
-              // Reset color after button label (original game behavior)
-              // Button labels are colored, but text after should return to white
-              (*ff7_externals.word_91F028) = 7;  // White color (index 7)
+              // NOTE: Do NOT reset color here - the button label should inherit
+              // the current text color (e.g., magenta for 【Cキー】)
+              // The color will be reset by the next FE Dx control code in the text
               // Continue to next iteration - the button label will be rendered
               // via the injection mechanism at the start of the loop
               continue;
@@ -930,9 +930,14 @@ RENDER_BUTTON_LABEL_CHAR:
               character_x += 26;
             else
               character_x += std::ceil(0.5f * charWidth);//2 * (*(byte *)((*ff7_externals.g_text_spacing_DB958C) + text_offset_spacing + current_character) & 0x1F);
-            --(*ff7_externals.field_remaining_character_length_DC3CCC);
-            ++buffer_text;
-            ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
+            // Only update buffer position and character count when NOT rendering from button label
+            // When rendering from button label, buffer_text should remain pointing at the next field character
+            if (!renderingFromButtonLabel)
+            {
+              --(*ff7_externals.field_remaining_character_length_DC3CCC);
+              ++buffer_text;
+              ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
+            }
           }
           else
           {
@@ -2442,9 +2447,9 @@ void auto_resize_text_box(int16_t WINDOW_ID, int16_t* pOutW, int16_t* pOutH)
 	}
 	// Add field offset to window size calculation to prevent text spilling
 	// Multiply by 2 because the result is divided by 2
-	// Height padding increased to 66 for more top margin
+	// Height padding reduced from 66 to 40 to decrease bottom padding (testing)
 	*pOutW = (std::max(maxW, W) + 40 + (int)(JA_FIELD_OFFSET_X * 2)) / 2;
-	*pOutH = (std::max(maxH, H) + 66 + (int)(JA_FIELD_OFFSET_Y * 2)) / 2;
+	*pOutH = (std::max(maxH, H) + 40 + (int)(JA_FIELD_OFFSET_Y * 2)) / 2;
 }
 
 void field_text_box_window_opening_6317A9_jp(short WINDOW_ID)
