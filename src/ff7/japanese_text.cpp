@@ -21,6 +21,12 @@ const float JA_TEXT_OFFSET_Y = 3.0f;   // Push Down (pixels) - Menu/Battle (was 
 const float JA_FIELD_OFFSET_X = 12.0f; // Push Right (pixels) - Field dialogue
 const float JA_FIELD_OFFSET_Y = 2.0f;  // Push Down (pixels) - Field dialogue
 
+// Line height configuration for Japanese text
+// The original game uses 32, but Japanese text looks better with tighter spacing
+const int JA_VANILLA_LINE_HEIGHT = 32; // Original game line height (do not change)
+const int JA_CUSTOM_LINE_HEIGHT = 26;  // Custom line height for Japanese text
+const int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text in dialogue boxes
+
 #include "../globals.h"
 
 #include "../ff7.h"
@@ -610,7 +616,7 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
     if ( *buffer_text == 231 )
     {
       character_x = (*ff7_externals.field_current_window_pos_x_DC3CB4) + 16;
-      character_y += 32; // Line height - must stay 32 for cursor alignment (game calculates cursor Y from row * 32)
+      character_y += JA_CUSTOM_LINE_HEIGHT; // Custom line height (cursor correction applied in background.cpp)
       ++buffer_text;
       ++ff7_externals.field_text_line_row_DC3CB8;
       ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
@@ -2431,7 +2437,7 @@ void auto_resize_text_box(int16_t WINDOW_ID, int16_t* pOutW, int16_t* pOutH)
 		{
       maxW = std::max(maxW, W);
       W = 0;
-			H += 32;
+			H += JA_CUSTOM_LINE_HEIGHT; // Custom line height for box sizing
       continue;
 		}
 		if(character == 0xE9 || character == 0xE8)

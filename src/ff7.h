@@ -3178,6 +3178,7 @@ struct ff7_externals
 	WORD* current_dialog_message_speed; // 0xCC0418
 	WORD* opcode_message_loop_code;
 	int (*field_opcode_ask_update_loop_6310A1)(uint8_t, uint8_t, uint8_t, uint8_t, WORD*);
+	uint32_t field_ask_cursor_y_multiply_instruction;  // shl eax, 4 at offset 0x2E9 from ask_update_loop
 	WORD* opcode_ask_question_code;
 	void (*play_midi)(uint32_t);
 	WORD *current_movie_frame;
@@ -3803,6 +3804,7 @@ struct ff7_externals
 	uint32_t field_draw_everything_sub_63A60B;
 	uint32_t field_submit_and_draw_text_box_and_text_6EBF2C;
 	uint32_t field_submit_draw_text_640x480_6E706D;
+	uint32_t field_draw_window_cursor_631D10;  // DrawWindowCursor - draws ASK dialogue selection cursor
 
 	void (*field_draw_text_boxes_and_text_graphics_object_6ECA68)();
 	void (*engine_gfx_draw_predefined_polygon_set_field_84_sub_660E95)(int, ff7_game_obj*);

@@ -542,6 +542,7 @@ inline void ff7_find_externals(struct ff7_game_obj* game_object)
 	ff7_externals.field_entity_id_list = (char*)get_absolute_value(ff7_externals.field_text_box_window_create_631586, 0x1F);
 
 	ff7_externals.field_opcode_ask_update_loop_6310A1 = (int (*)(uint8_t, uint8_t, uint8_t, uint8_t, WORD*))get_relative_call(ff7_externals.opcode_ask, 0x8E);
+	ff7_externals.field_ask_cursor_y_multiply_instruction = (uint32_t)ff7_externals.field_opcode_ask_update_loop_6310A1 + 0x2E9;  // shl eax, 4 for cursor Y calculation
 	ff7_externals.opcode_ask_question_code = (WORD*)get_absolute_value((uint32_t)ff7_externals.field_opcode_ask_update_loop_6310A1, 0x2FE);
 
 	ff7_externals.field_music_helper = get_relative_call(ff7_externals.opcode_cmusc, 0x5E);
@@ -1488,6 +1489,10 @@ inline void ff7_find_externals(struct ff7_game_obj* game_object)
 	ff7_externals.field_draw_everything_sub_63A60B = get_relative_call(ff7_externals.field_sub_6388EE, 0x11);
 	ff7_externals.field_submit_and_draw_text_box_and_text_6EBF2C = get_relative_call(ff7_externals.field_draw_everything_sub_63A60B, 0x39A);
 	ff7_externals.field_submit_draw_text_640x480_6E706D = get_relative_call(ff7_externals.field_submit_and_draw_text_box_and_text_6EBF2C, 0x363);
+	// DrawWindowCursor (sub_631D10) - draws the ASK dialogue selection finger cursor
+	// Dynamically scan for the next CALL instruction after text box drawing
+	// Text box call is at 0x39A (5 bytes), then stack cleanup (3 bytes), then the cursor call
+	ff7_externals.field_draw_window_cursor_631D10 = 0;  // Will be set by dynamic scan in ff7_field_hook_init
 
 	ff7_externals.field_text_box_curr_n_characters_DC3CB0 = (int*)get_absolute_value((uint32_t)ff7_externals.field_submit_draw_text_640x480_6E706D, 0xD1);
 	ff7_externals.field_text_line_row_DC3CB8 = (int*)get_absolute_value((uint32_t)ff7_externals.field_submit_draw_text_640x480_6E706D, 0xC4);

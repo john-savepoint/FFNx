@@ -29,6 +29,7 @@
 #include "../../log.h"
 #include "../../patch.h"
 #include "../../common.h"
+#include "../../cfg.h"
 #include "../widescreen.h"
 #include "../defs.h"
 
@@ -235,6 +236,39 @@ namespace ff7::field
             replace_call_function(ff7_externals.compute_and_submit_draw_gateways_arrows_64DA3B + 0x357, ff7_field_submit_draw_arrow);
             replace_call_function(ff7_externals.compute_and_submit_draw_gateways_arrows_64DA3B + 0x63C, ff7_field_submit_draw_arrow);
             replace_call_function(ff7_externals.field_submit_draw_pointer_hand_60D572 + 0x284, ff7_field_submit_draw_cursor);
+        }
+
+        // Also hook cursor for Japanese edition even without fps limiter
+        // This is safe because ff7_field_submit_draw_cursor checks ff7_japanese_edition internally
+        if (ff7_japanese_edition && ff7_fps_limiter < FPS_LIMITER_30FPS)
+        {
+            replace_call_function(ff7_externals.field_submit_draw_pointer_hand_60D572 + 0x284, ff7_field_submit_draw_cursor);
+        }
+
+        // Patch ASK cursor Y calculation
+        // Original: C1 E0 04 (shl eax, 4 = multiply by 16 for internal 32px line height)
+        // Change to: 6B C0 0D (imul eax, eax, 13) for 26px line height (26/2=13)
+        if (ff7_japanese_edition)
+        {
+            unsigned char* patch_addr = (unsigned char*)ff7_externals.field_ask_cursor_y_multiply_instruction;
+
+            // Verify we're patching the right instruction (should be C1 E0 04 = shl eax, 4)
+            if (patch_addr[0] == 0xC1 && patch_addr[1] == 0xE0 && patch_addr[2] == 0x04)
+            {
+                DWORD old_protect;
+                VirtualProtect(patch_addr, 3, PAGE_EXECUTE_READWRITE, &old_protect);
+                patch_addr[0] = 0x6B;  // imul
+                patch_addr[1] = 0xC0;  // eax, eax
+                patch_addr[2] = 0x0D;  // 13 (internal line height for 26px)
+                VirtualProtect(patch_addr, 3, old_protect, &old_protect);
+
+                ffnx_info("Patched ASK cursor Y at 0x%X: shl 4 -> imul 13\n", (uint32_t)patch_addr);
+            }
+            else
+            {
+                ffnx_warning("ASK cursor Y patch: unexpected bytes at 0x%X: %02X %02X %02X (expected C1 E0 04)\n",
+                    (uint32_t)patch_addr, patch_addr[0], patch_addr[1], patch_addr[2]);
+            }
         }
 
         // Movie model animation fps fix

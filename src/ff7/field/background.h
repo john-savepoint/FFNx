@@ -42,6 +42,7 @@ namespace ff7::field
     void ff7_field_set_world_coordinate_640EB7();
     void ff7_field_submit_draw_arrow(field_arrow_graphics_data* arrow_data);
     void ff7_field_submit_draw_cursor(field_arrow_graphics_data* arrow_data);
+    void ff7_field_submit_draw_window_cursor(field_arrow_graphics_data* arrow_data);  // ASK dialogue cursor
     void draw_gray_quads_sub_644E90();
     inline bool is_position_valid(vector2<float> position) {
         return position.x != INVALID_VALUE && position.y != INVALID_VALUE;

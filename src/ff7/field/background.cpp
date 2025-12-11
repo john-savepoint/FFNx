@@ -23,6 +23,7 @@
 
 #include "../../common.h"
 #include "../../globals.h"
+#include "../../log.h"
 #include "../widescreen.h"
 
 #include "../../renderer.h"
@@ -33,10 +34,19 @@
 #include "camera.h"
 
 #include <functional>
+#include <cmath>
+
+// External variable from voice.cpp that tracks current ASK option
+extern byte opcode_ask_current_option;
 
 namespace ff7::field
 {
     constexpr float MIN_STEP_INVERSE = 10.f;
+
+    // Line height constants for cursor correction (must match japanese_text.cpp)
+    constexpr int JA_VANILLA_LINE_HEIGHT = 32; // Original game line height
+    constexpr int JA_CUSTOM_LINE_HEIGHT = 26;  // Custom line height for Japanese text
+    constexpr int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text
 
     // ##################################################################
     // ----------------- DRAW GRAPHICS RELATED --------------------------
@@ -394,7 +404,82 @@ namespace ff7::field
 
     void ff7_field_submit_draw_cursor(field_arrow_graphics_data* arrow_data)
     {
-        // Add delta position lost due to non-float calculation
+        // Japanese text line height correction for ASK dialogue cursor
+        // This function handles BOTH field pointer (over Cloud) AND ASK dialogue cursor
+        // We detect which by checking if cursor Y is inside a text box window
+        if (ff7_japanese_edition && JA_CUSTOM_LINE_HEIGHT != JA_VANILLA_LINE_HEIGHT)
+        {
+            float cursorY = arrow_data->vertices[0].y;
+            int foundWindow = -1;
+            float winTop = 0;
+
+            // Debug: Log every call to understand what's being passed
+            static int callCount = 0;
+            callCount++;
+            if (callCount <= 20 || (callCount % 100 == 0))
+            {
+                ffnx_trace("CURSOR_HOOK: call#%d, cursorY=%.1f\n", callCount, cursorY);
+                for (int i = 0; i < 4; i++)
+                {
+                    auto& win = ff7_externals.text_box_window_data_array_CFF5B8[i];
+                    ffnx_trace("  win[%d]: flags=%d, pos=(%d,%d), size=(%d,%d), cur_size=(%d,%d)\n",
+                        i, (int)win.flags, (int)win.window_pos_x, (int)win.window_pos_y,
+                        (int)win.window_width, (int)win.window_height,
+                        (int)win.current_window_width, (int)win.current_window_height);
+                }
+            }
+
+            // Check if cursor is inside any active text box window (ASK dialogue)
+            for (int i = 0; i < 4; i++)
+            {
+                auto& win = ff7_externals.text_box_window_data_array_CFF5B8[i];
+                // Check multiple conditions for "active" window
+                if (win.flags != 0 || win.window_height > 0)  // Window might be active
+                {
+                    // Check if cursor Y is within this window's vertical bounds
+                    float winH = (win.current_window_height > 0) ? win.current_window_height : win.window_height;
+                    float winBottom = win.window_pos_y + winH;
+                    if (cursorY >= win.window_pos_y - 20 && cursorY <= winBottom + 50)
+                    {
+                        foundWindow = i;
+                        winTop = (float)win.window_pos_y;
+                        break;
+                    }
+                }
+            }
+
+            // If cursor is inside a text box, apply ASK dialogue cursor correction
+            if (foundWindow != -1)
+            {
+                // Vanilla formula: CursorY = WinTop + 16 + (Row * 32)
+                // Reverse it: Row = (CursorY - WinTop - 16) / 32
+                int row = (int)((cursorY - winTop - (float)JA_TEXT_PADDING_TOP) / (float)JA_VANILLA_LINE_HEIGHT + 0.5f);
+
+                // Debug logging
+                static int lastRow = -1;
+                static int lastWindow = -1;
+                if (row != lastRow || foundWindow != lastWindow)
+                {
+                    ffnx_trace("ASK CURSOR: win=%d, cursorY=%.1f, winTop=%.1f, row=%d\n",
+                        foundWindow, cursorY, winTop, row);
+                    lastRow = row;
+                    lastWindow = foundWindow;
+                }
+
+                // Apply correction for rows after the first
+                if (row > 0)
+                {
+                    float adjustment = row * (float)(JA_VANILLA_LINE_HEIGHT - JA_CUSTOM_LINE_HEIGHT);
+                    for (int v = 0; v < 4; v++)
+                    {
+                        arrow_data->vertices[v].y -= adjustment;
+                    }
+                }
+            }
+            // else: field pointer - no adjustment needed (field pointer doesn't use line height)
+        }
+
+        // Add delta position lost due to non-float calculation (existing logic for field pointer)
         if(is_position_valid(cursor_position))
         {
             vector2<float> delta;
@@ -407,6 +492,64 @@ namespace ff7::field
             }
         }
 
+        ff7_externals.field_submit_draw_arrow_63A171(arrow_data);
+    }
+
+    // ASK dialogue cursor correction for Japanese text line height
+    // This is hooked from DrawWindowCursor (sub_631D10) which draws the selection finger
+    // in dialogue choice windows. Uses geometry-based row calculation since memory
+    // variables don't reliably track the current selection.
+    void ff7_field_submit_draw_window_cursor(field_arrow_graphics_data* arrow_data)
+    {
+        // Only apply correction for Japanese edition with custom line height
+        if (ff7_japanese_edition && JA_CUSTOM_LINE_HEIGHT != JA_VANILLA_LINE_HEIGHT)
+        {
+            float cursorY = arrow_data->vertices[0].y;
+            int foundWindow = -1;
+            float winTop = 0;
+
+            // 1. Find which text box window the cursor is inside
+            for (int i = 0; i < 4; i++)
+            {
+                auto& win = ff7_externals.text_box_window_data_array_CFF5B8[i];
+                if (win.flags != 0)  // Window is active
+                {
+                    // Check vertical bounds with generous padding
+                    if (cursorY >= win.window_pos_y - 10 &&
+                        cursorY <= win.window_pos_y + win.current_window_height + 10)
+                    {
+                        foundWindow = i;
+                        winTop = (float)win.window_pos_y;
+                        break;
+                    }
+                }
+            }
+
+            // 2. Calculate row and apply cursor Y offset
+            if (foundWindow != -1)
+            {
+                // Vanilla logic: CursorY = WinTop + 16 + (Row * 32)
+                // Reverse it: Row = (CursorY - WinTop - 16) / 32
+                // Add 0.5f to round to nearest integer
+                int row = (int)((cursorY - winTop - (float)JA_TEXT_PADDING_TOP) / (float)JA_VANILLA_LINE_HEIGHT + 0.5f);
+
+                if (row > 0)
+                {
+                    // Calculate how much we need to move cursor UP
+                    // Vanilla spacing: 32px. Custom spacing: 26px.
+                    // Difference: 6px per row
+                    float adjustment = row * (float)(JA_VANILLA_LINE_HEIGHT - JA_CUSTOM_LINE_HEIGHT);
+
+                    // Apply to all 4 vertices of the cursor quad
+                    for (int k = 0; k < 4; k++)
+                    {
+                        arrow_data->vertices[k].y -= adjustment;
+                    }
+                }
+            }
+        }
+
+        // Call original draw function
         ff7_externals.field_submit_draw_arrow_63A171(arrow_data);
     }
 
