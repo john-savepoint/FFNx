@@ -129,3 +129,12 @@ void main_menu_draw_everything_maybe_6C0B91_jp();
 void field_text_box_window_paging_631945_jp(short);
 void field_text_box_window_opening_6317A9_jp(short);
 int sub_6F54A2_jp(byte *a1);
+
+// japanese naming screen
+// Replaces keyboard_name_input - collects Japanese input and renders grid each frame
+int ff7_naming_keyboard_input_jp();
+// Force-overwrite counter - when > 0, re-applies Japanese name to savemap each frame
+void ff7_naming_screen_force_overwrite_tick();
+extern bool g_jp_naming_screen_active;
+extern bool g_jp_naming_screen_drawing;
+extern int g_jp_naming_force_overwrite_frames;

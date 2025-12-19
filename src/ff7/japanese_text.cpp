@@ -28,8 +28,10 @@ const int JA_CUSTOM_LINE_HEIGHT = 26;  // Custom line height for Japanese text
 const int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text in dialogue boxes
 
 #include "../globals.h"
+#include "../log.h"
 
 #include "../ff7.h"
+#include "defs.h"
 
 // Button placeholder labels for Japanese field text
 // Format: jafont_1 byte sequences for each button function
@@ -1120,6 +1122,12 @@ void field_draw_text_boxes_and_text_graphics_object_6ECA68_jp()
 
 int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_shapes, unsigned __int16 letter, float z_value)
 {
+  // NOTE: Old filter removed (2025-12-13)
+  // We now use the INJECTION approach - English grid is blanked in memory (0xFF)
+  // so vanilla renders nothing useful. No runtime filtering needed.
+  // The old filter was causing post-screen garbling because g_jp_naming_screen_active
+  // wasn't being properly reset, or was affecting other screens.
+
   graphics_vertex *bottom_right; // [esp+1Ch] [ebp-4Ch]
   graphics_vertex *top_right; // [esp+20h] [ebp-48h]
   graphics_vertex *bottom_left; // [esp+24h] [ebp-44h]
@@ -1189,6 +1197,10 @@ int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_sha
       //offset_text_spacing = 1092;
       goto LABEL_9;
     default:
+      // OLD FIX: Config menu ASCII detection - DISABLED because ja_font now handles keyboard labels
+      // correctly via HEXT patches with +0x20 offset. See SESSION_HANDOFF_2025-12-08-08.
+      // The HEXT patches encode keyboard labels so jafont_1 renders them properly.
+      /*
       // Check if we're in config menu (index 8) AND character is ASCII printable (0x20-0x7E)
       // If so, use usfont for keyboard labels instead of jafont_1
       if (ff7_externals.dword_DC12EC && *ff7_externals.dword_DC12EC == 8 &&
@@ -1201,6 +1213,11 @@ int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_sha
         charWidth = charWidthData[0][*p_letter] & 0x1F;
         leftPadding = charWidthData[0][*p_letter] >> 5;
       }
+      */
+      // Use jafont_1 for all characters in default case
+      character_graphics_object = ff7_externals.menu_jafont_1_graphics_object;
+      charWidth = charWidthData[0][*p_letter] & 0x1F;
+      leftPadding = charWidthData[0][*p_letter] >> 5;
       break;
   }
 
@@ -1332,6 +1349,9 @@ void menu_draw_everything_6CC9D3_jp()
 {
   ff7_game_obj *game_object; // [esp+0h] [ebp-4h]
 
+  // Tick the force-overwrite counter for Japanese naming screen name persistence
+  ff7_naming_screen_force_overwrite_tick();
+
   if ( ff7_externals.g_get_do_render_menu_6CDBF2() )
   {
     game_object = ff7_externals.engine_get_game_object_676578();
@@ -1343,7 +1363,10 @@ void menu_draw_everything_6CC9D3_jp()
     {
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_blend_4_graphics_object_DC104C, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
-      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
+      // Skip drawing English font when Japanese naming screen is active
+      if (!g_jp_naming_screen_active) {
+        ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
+      }
     }
     else
     {
@@ -1352,9 +1375,15 @@ void menu_draw_everything_6CC9D3_jp()
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_b_blend_4_graphics_object_DC0FCC, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_d_blend_4_graphics_object_DC0FD4, game_object);
-      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
-      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
-      
+      // Skip drawing English font when Japanese naming screen is active (prevents flickering overlay)
+      if (!g_jp_naming_screen_active) {
+        ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
+        ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
+      } else {
+        static int skip_log = 0;
+        if (skip_log++ % 60 == 0) ffnx_trace("menu_draw_everything: SKIPPING English font (flag=%d)\n", g_jp_naming_screen_active ? 1 : 0);
+      }
+
       // jp
       ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_1_graphics_object, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_2_graphics_object, game_object);
@@ -2326,7 +2355,10 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
   {
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_blend_4_graphics_object_DC104C, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
-    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
+    // Skip drawing English font when Japanese naming screen is active
+    if (!g_jp_naming_screen_active) {
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
+    }
   }
   else
   {
@@ -2335,8 +2367,11 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_b_blend_4_graphics_object_DC0FCC, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_d_blend_4_graphics_object_DC0FD4, game_object);
-    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
-    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
+    // Skip drawing English font when Japanese naming screen is active
+    if (!g_jp_naming_screen_active) {
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
+    }
 
     // jp
     ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_1_graphics_object, game_object);
@@ -2453,9 +2488,9 @@ void auto_resize_text_box(int16_t WINDOW_ID, int16_t* pOutW, int16_t* pOutH)
 	}
 	// Add field offset to window size calculation to prevent text spilling
 	// Multiply by 2 because the result is divided by 2
-	// Height padding reduced from 66 to 40 to decrease bottom padding (testing)
+	// Height padding of 66 for proper text fit (40 was too tight, caused pagination)
 	*pOutW = (std::max(maxW, W) + 40 + (int)(JA_FIELD_OFFSET_X * 2)) / 2;
-	*pOutH = (std::max(maxH, H) + 40 + (int)(JA_FIELD_OFFSET_Y * 2)) / 2;
+	*pOutH = (std::max(maxH, H) + 66 + (int)(JA_FIELD_OFFSET_Y * 2)) / 2;
 }
 
 void field_text_box_window_opening_6317A9_jp(short WINDOW_ID)
