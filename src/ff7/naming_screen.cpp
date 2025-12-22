@@ -107,6 +107,50 @@ const int ENGLISH_GRID_SIZE = 90; // Approximate size of the grid data
 // Found via Cheat Engine - alternates between 0/1 when moving between grid and sidebar
 int* const VANILLA_IN_SIDEBAR_FLAG = (int*)0x00921ED4;
 
+// Sidebar cursor position (0-6 for our 7-item sidebar)
+// This is at 0xDD453C + sidebar_flag * 0x38 = 0xDD4574 when in sidebar mode
+int* const VANILLA_SIDEBAR_CURSOR_Y = (int*)0x00DD4574;
+
+// ============================================================================
+// CURSOR Y ADJUSTMENT - Runtime patching for sidebar vs grid cursor
+// ============================================================================
+// The vanilla cursor Y calculation is SHARED between grid and sidebar cursors.
+// Code at 0x718FC1 reads cursor position, multiplies by 0x22 (34 pixels), adds base.
+// We can't use HEXT to fix this because it would affect both cursors.
+// Solution: Dynamically patch the ADD instruction's base value based on sidebar_flag.
+//
+// Key addresses (Virtual Addresses in ff7_en.exe):
+// - 0x718EE0: First cursor Y base value (ADD EDX, imm32) - immediate is 2 bytes at this address
+// - 0x718FCC: Second cursor Y base value (ADD EDX, imm32) - immediate is 2 bytes at this address
+// - Text labels were moved up by ~111 pixels (from 330 to 219) via HEXT patch at 0x719244
+// - Cursor needs same adjustment when in sidebar mode
+//
+// Original base values:
+// - 0x718EE0: 0xD6 (214 decimal)
+// - 0x718FCC: 0x14C (332 decimal) - this seems to be the main sidebar cursor Y base
+//
+// When sidebar_flag == 1 (in sidebar): Subtract 111 from base values
+// When sidebar_flag == 0 (in grid): Use original base values
+
+// Addresses to patch (Virtual Addresses)
+const uint32_t CURSOR_Y_BASE_1_VA = 0x00718EE0;  // ADD EDX, imm32 - immediate value location
+const uint32_t CURSOR_Y_BASE_2_VA = 0x00718FCC;  // ADD EDX, imm32 - immediate value location
+
+// Original values (from vanilla exe)
+const uint16_t CURSOR_Y_BASE_1_ORIGINAL = 0x00D6;  // 214 decimal
+const uint16_t CURSOR_Y_BASE_2_ORIGINAL = 0x014C;  // 332 decimal
+
+// Offset to apply when in sidebar mode (matches text label shift)
+const int16_t SIDEBAR_Y_OFFSET = -111;  // Move cursor up by 111 pixels to match text labels
+
+// Track previous sidebar state to detect changes
+static int g_prev_sidebar_state_for_y_patch = -1;  // -1 = uninitialized
+
+// Sidebar item count - vanilla initializes this to 4, we need 7 for our 7-item sidebar
+// Address 0xDD457C stores the number of sidebar items (used for cursor wrap)
+// HEXT patch at 718A28=07 should handle this, but as backup we set it directly
+int* const VANILLA_SIDEBAR_ITEM_COUNT = (int*)0x00DD457C;
+
 // Input timing
 const uint32_t INPUT_INITIAL_DELAY = 15;
 const uint32_t INPUT_REPEAT_RATE = 4;
@@ -131,6 +175,9 @@ struct NamingScreenState {
     bool cancel_pressed;
     bool l1_pressed;
     bool r1_pressed;
+    bool start_pressed;  // Track Start button for edge detection
+    bool dpad_right_pressed;  // Track D-pad RIGHT for sidebar entry edge detection
+    bool dpad_left_pressed;   // Track D-pad LEFT for sidebar exit edge detection
 
     uint32_t last_input_frame;
     uint32_t frame_counter;
@@ -157,6 +204,7 @@ static int g_prev_name_pos = -1;
 static int g_prev_grid_x = 0;
 static int g_prev_grid_y = 0;
 static int g_prev_in_sidebar = 0;
+static int g_prev_sidebar_cursor = 0;  // Track sidebar cursor for page switch detection
 
 // Track if Cancel was pressed while in grid - used to undo vanilla's sidebar snap
 // We need to keep trying for a few frames because vanilla's state change may be delayed
@@ -166,6 +214,13 @@ static const int CANCEL_UNDO_MAX_FRAMES = 3;  // Try for up to 3 frames
 // Original function pointer for post-hook pattern
 typedef void (*menu_sub_718DBE_func)();
 static menu_sub_718DBE_func g_original_menu_sub_718DBE = nullptr;
+
+// Vanilla cursor draw function at 0x6EB3B8
+// Calling convention: cdecl, 3 params pushed right-to-left
+// Params: X (int), Y (int), Z (float as int bits)
+// From disassembly at 0x718EFA: push ecx (X), push edx (Y), push 3DCCCCCD (Z=0.10f), call
+typedef void (__cdecl *draw_menu_cursor_func)(int x, int y, int z_bits);
+static draw_menu_cursor_func g_vanilla_draw_cursor = (draw_menu_cursor_func)0x6EB3B8;
 
 // ============================================================================
 // CHARACTER TABLES (jafont_1 indices)
@@ -260,6 +315,69 @@ static void naming_screen_draw();
 static int naming_screen_get_max_rows();
 static void naming_screen_write_table_to_grid();
 static uint8_t naming_screen_get_char_at_cursor();
+static void naming_screen_update_cursor_y_patch();
+static void naming_screen_cleanup_cursor_y_patch();
+
+// ============================================================================
+// CURSOR Y PATCHING - Dynamic runtime memory modification
+// ============================================================================
+
+// Update the cursor Y base values in memory based on current sidebar state
+// This is called every frame to ensure cursor Y is correct for current mode
+static void naming_screen_update_cursor_y_patch()
+{
+    int current_sidebar_state = *VANILLA_IN_SIDEBAR_FLAG;
+
+    // Only patch if state changed (or on first call)
+    if (current_sidebar_state == g_prev_sidebar_state_for_y_patch) {
+        return;  // No change, skip patching
+    }
+
+    // Calculate new base values
+    uint16_t new_base_1, new_base_2;
+
+    if (current_sidebar_state == 1) {
+        // In sidebar mode - apply offset to move cursor up
+        new_base_1 = (uint16_t)(CURSOR_Y_BASE_1_ORIGINAL + SIDEBAR_Y_OFFSET);
+        new_base_2 = (uint16_t)(CURSOR_Y_BASE_2_ORIGINAL + SIDEBAR_Y_OFFSET);
+        ffnx_info("naming_screen_update_cursor_y_patch: Entering sidebar mode - applying Y offset\n");
+        ffnx_info("  Base 1: 0x%04X -> 0x%04X (%d -> %d)\n",
+            CURSOR_Y_BASE_1_ORIGINAL, new_base_1,
+            CURSOR_Y_BASE_1_ORIGINAL, new_base_1);
+        ffnx_info("  Base 2: 0x%04X -> 0x%04X (%d -> %d)\n",
+            CURSOR_Y_BASE_2_ORIGINAL, new_base_2,
+            CURSOR_Y_BASE_2_ORIGINAL, new_base_2);
+    } else {
+        // In grid mode - restore original values
+        new_base_1 = CURSOR_Y_BASE_1_ORIGINAL;
+        new_base_2 = CURSOR_Y_BASE_2_ORIGINAL;
+        ffnx_info("naming_screen_update_cursor_y_patch: Entering grid mode - restoring original Y values\n");
+    }
+
+    // Patch memory at runtime
+    // Note: These are virtual addresses, we need to write directly to memory
+    // The game's code is in executable memory, so we may need VirtualProtect
+
+    DWORD oldProtect1, oldProtect2;
+
+    // Patch first location (0x718EE0)
+    if (VirtualProtect((LPVOID)CURSOR_Y_BASE_1_VA, 2, PAGE_EXECUTE_READWRITE, &oldProtect1)) {
+        *(uint16_t*)CURSOR_Y_BASE_1_VA = new_base_1;
+        VirtualProtect((LPVOID)CURSOR_Y_BASE_1_VA, 2, oldProtect1, &oldProtect1);
+    } else {
+        ffnx_error("naming_screen_update_cursor_y_patch: Failed to patch base 1 at 0x%08X\n", CURSOR_Y_BASE_1_VA);
+    }
+
+    // Patch second location (0x718FCC)
+    if (VirtualProtect((LPVOID)CURSOR_Y_BASE_2_VA, 2, PAGE_EXECUTE_READWRITE, &oldProtect2)) {
+        *(uint16_t*)CURSOR_Y_BASE_2_VA = new_base_2;
+        VirtualProtect((LPVOID)CURSOR_Y_BASE_2_VA, 2, oldProtect2, &oldProtect2);
+    } else {
+        ffnx_error("naming_screen_update_cursor_y_patch: Failed to patch base 2 at 0x%08X\n", CURSOR_Y_BASE_2_VA);
+    }
+
+    g_prev_sidebar_state_for_y_patch = current_sidebar_state;
+}
 
 // ============================================================================
 // INITIALIZATION
@@ -298,6 +416,13 @@ static void naming_screen_init(int character_index)
     g_naming_state.frame_counter = 0;
 
     g_jp_naming_screen_active = true;
+
+    // Set sidebar item count to 7 (for our 7-item Japanese sidebar)
+    // HEXT patch 718A28=07 should handle this, but vanilla may initialize after HEXT
+    // So we force-set it here to ensure proper cursor wrapping
+    *VANILLA_SIDEBAR_ITEM_COUNT = 7;
+    ffnx_info("naming_screen_init: Set sidebar item count to 7 (was %d)\n",
+        *VANILLA_SIDEBAR_ITEM_COUNT);
 
     // Write the initial page's table to vanilla's grid memory
     // This replaces the English A-Z grid with Japanese characters at 0x921D70
@@ -483,6 +608,30 @@ static void naming_screen_add_space()
     naming_screen_add_character(0x3F);
 }
 
+// Restore original cursor Y base values when exiting naming screen
+// This ensures grid cursor works correctly for any other menus that might use the same code
+static void naming_screen_cleanup_cursor_y_patch()
+{
+    DWORD oldProtect1, oldProtect2;
+
+    // Restore first location (0x718EE0)
+    if (VirtualProtect((LPVOID)CURSOR_Y_BASE_1_VA, 2, PAGE_EXECUTE_READWRITE, &oldProtect1)) {
+        *(uint16_t*)CURSOR_Y_BASE_1_VA = CURSOR_Y_BASE_1_ORIGINAL;
+        VirtualProtect((LPVOID)CURSOR_Y_BASE_1_VA, 2, oldProtect1, &oldProtect1);
+    }
+
+    // Restore second location (0x718FCC)
+    if (VirtualProtect((LPVOID)CURSOR_Y_BASE_2_VA, 2, PAGE_EXECUTE_READWRITE, &oldProtect2)) {
+        *(uint16_t*)CURSOR_Y_BASE_2_VA = CURSOR_Y_BASE_2_ORIGINAL;
+        VirtualProtect((LPVOID)CURSOR_Y_BASE_2_VA, 2, oldProtect2, &oldProtect2);
+    }
+
+    // Reset tracking state for next time
+    g_prev_sidebar_state_for_y_patch = -1;
+
+    ffnx_info("naming_screen_cleanup_cursor_y_patch: Restored original cursor Y base values\n");
+}
+
 static void naming_screen_confirm_name()
 {
     // With the INJECTION approach, vanilla will copy VANILLA_NAME_BUFFER to savemap
@@ -503,6 +652,9 @@ static void naming_screen_confirm_name()
     // Ensure vanilla's buffer matches ours (should already be synced, but be safe)
     memcpy(VANILLA_NAME_BUFFER, g_naming_state.name_buffer, NAME_MAX_CHARS);
     *VANILLA_NAME_CURSOR_POS = g_naming_state.name_cursor_pos;
+
+    // Cleanup: Restore original cursor Y base values before exiting
+    naming_screen_cleanup_cursor_y_patch();
 
     g_naming_state.is_active = false;
     g_jp_naming_screen_active = false;
@@ -588,6 +740,10 @@ static void naming_screen_process_input()
 {
     g_naming_state.frame_counter++;
 
+    // Update cursor Y base values based on sidebar state (CRITICAL: do this early)
+    // This patches memory to adjust cursor Y when entering/leaving sidebar
+    naming_screen_update_cursor_y_patch();
+
     // TRACE: Monitor entire buffer for any 0x00 writes (Space character)
     static uint8_t trace_prev_buf[9] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
     for (int i = 0; i < 9; i++) {
@@ -620,7 +776,12 @@ static void naming_screen_process_input()
     if (vanilla_y < 0) vanilla_y = 0;
 
     int max_rows = naming_screen_get_max_rows();
-    if (vanilla_y >= max_rows) vanilla_y = max_rows - 1;
+    if (vanilla_y >= max_rows) {
+        vanilla_y = max_rows - 1;
+        // CRITICAL: Write back to vanilla's cursor position to enforce the clamp
+        // This prevents cursor from going to rows 6-9 when in Eisuu mode (5 rows only)
+        *VANILLA_GRID_CURSOR_Y = vanilla_y;
+    }
 
     // Update our state to match vanilla's grid cursor
     g_naming_state.cursor_x = vanilla_x;
@@ -638,30 +799,66 @@ static void naming_screen_process_input()
             naming_screen_switch_page(1);
         }
 
-        // Detect Cancel button press while in grid - we'll undo vanilla's sidebar snap later
-        if (naming_screen_check_button_edge(pad->button2 != 0, &g_naming_state.cancel_pressed)) {
-            if (g_prev_in_sidebar == 0) {
-                // Cancel was pressed while cursor was in grid
-                // Start the undo timer
-                g_cancel_undo_frames = CANCEL_UNDO_MAX_FRAMES;
-                ffnx_info("naming_screen: Cancel pressed while in grid - will undo sidebar snap for %d frames\n", g_cancel_undo_frames);
+        // REMOVED (2025-12-20): Cancel button sidebar snap is now fixed via HEXT patch.
+        // Patch at VA 0x71915B changes JE to JMP, preventing sidebar snap entirely.
+        // This matches Japanese version behavior where Cancel only deletes characters.
+        // See: japanese_menu.txt "Cancel Button Sidebar Snap Fix" section.
+
+        // START BUTTON HANDLER (2025-12-21)
+        // Vanilla Start button handler has interdependencies with Cancel that break when
+        // Cancel is patched. Solution: NOP vanilla Start handler via HEXT (71980B = 56 NOPs)
+        // and handle Start button entirely in FFNx.
+        //
+        // When Start is pressed:
+        // - Set sidebar_flag (0x921ED4) = 1 (enter sidebar mode)
+        // - Set sidebar cursor (0xDD4574) = 5 (けってい/Select position)
+        //
+        // Button mapping: button9 = Select, button10 = Start (standard PS mapping)
+        // If button10 doesn't work, try button9.
+        if (naming_screen_check_button_edge(pad->button10 != 0, &g_naming_state.start_pressed)) {
+            // Only enter sidebar if we're currently in the grid
+            if (*VANILLA_IN_SIDEBAR_FLAG == 0) {
+                *VANILLA_IN_SIDEBAR_FLAG = 1;           // Enter sidebar mode
+                *VANILLA_SIDEBAR_CURSOR_Y = 5;          // Position 5 = けってい (Select/Confirm)
+                ffnx_info("naming_screen: Start button pressed - entering sidebar at position 5 (けってい)\n");
             }
         }
-    }
 
-    // PASSIVE CANCEL HANDLING: Detect and undo vanilla's sidebar snap
-    // When Cancel is pressed in grid, vanilla:
-    // 1. Deletes a character (decreases name_pos) - this is what we want
-    // 2. Snaps cursor to sidebar - this is what we DON'T want
-    // We let vanilla do both, then force cursor back to grid for several frames
-    int current_in_sidebar = *VANILLA_IN_SIDEBAR_FLAG;
-    if (g_cancel_undo_frames > 0) {
-        if (current_in_sidebar != 0) {
-            // Vanilla put us in sidebar - force back to grid
-            *VANILLA_IN_SIDEBAR_FLAG = 0;
-            ffnx_info("naming_screen: Forcing cursor back to grid (frames left: %d)\n", g_cancel_undo_frames);
+        // SIDEBAR NAVIGATION (2025-12-21)
+        // Vanilla's sidebar entry/exit logic is NOPed via HEXT patches at:
+        //   0x718F46 (entry - was writing 1)
+        //   0x71900E (exit - was writing 0)
+        // FFNx now has full control over sidebar transitions.
+        //
+        // Desired behavior:
+        //   - D-pad RIGHT when X cursor = 9 (rightmost column) -> Enter sidebar
+        //   - D-pad LEFT when in sidebar -> Exit to grid (X cursor = 9)
+        //
+        // Read current state
+        int current_sidebar = *VANILLA_IN_SIDEBAR_FLAG;
+        int cursor_x = *VANILLA_GRID_CURSOR_X;
+
+        // Handle ENTRY: Grid -> Sidebar (D-pad RIGHT when at rightmost column)
+        if (current_sidebar == 0) {
+            if (naming_screen_check_button_edge(pad->dpad_right != 0, &g_naming_state.dpad_right_pressed)) {
+                if (cursor_x == 9) {
+                    // ENTER SIDEBAR
+                    *VANILLA_IN_SIDEBAR_FLAG = 1;
+                    *VANILLA_SIDEBAR_CURSOR_Y = 0;  // Start at top (ひらがな)
+                    ffnx_info("naming_screen: D-pad RIGHT at X=9 - entering sidebar at position 0\n");
+                }
+                // If not at X=9, let vanilla handle the cursor movement
+            }
         }
-        g_cancel_undo_frames--;
+        // Handle EXIT: Sidebar -> Grid (D-pad LEFT)
+        else {
+            if (naming_screen_check_button_edge(pad->dpad_left != 0, &g_naming_state.dpad_left_pressed)) {
+                // EXIT SIDEBAR
+                *VANILLA_IN_SIDEBAR_FLAG = 0;
+                *VANILLA_GRID_CURSOR_X = 9;  // Return to rightmost column
+                ffnx_info("naming_screen: D-pad LEFT in sidebar - exiting to grid at X=9\n");
+            }
+        }
     }
 
     // DISABLED (2025-12-17): Passive injection overwrite no longer needed.
@@ -773,11 +970,67 @@ static void naming_screen_process_input()
     }
     */
 
+    // SIDEBAR PAGE SWITCH DETECTION (2025-12-20)
+    // When user confirms on sidebar positions 0-2, switch pages:
+    //   Position 0: ひらがな -> Switch to Hiragana
+    //   Position 1: カタカナ -> Switch to Katakana
+    //   Position 2: えいすう -> Switch to Eisuu
+    // The jump table has these set to NOP, so vanilla does nothing.
+    // We detect the confirm press while in sidebar at positions 0-2 and handle it.
+    int current_sidebar_cursor = *VANILLA_SIDEBAR_CURSOR_Y;
+    int current_in_sidebar_for_page = *VANILLA_IN_SIDEBAR_FLAG;
+
+    // Detect confirm button press while in sidebar at positions 0-2
+    ff7_gamepad_status* pad_confirm = ff7_externals.gamepad_status;
+    static bool g_confirm_prev = false;
+    bool confirm_now = (pad_confirm != nullptr && pad_confirm->button3 != 0);
+    bool confirm_edge = confirm_now && !g_confirm_prev;
+    g_confirm_prev = confirm_now;
+
+    if (confirm_edge && current_in_sidebar_for_page == 1 && current_sidebar_cursor >= 0 && current_sidebar_cursor <= 2) {
+        NamingScreenPage new_page = g_naming_state.current_page;
+        switch (current_sidebar_cursor) {
+            case 0:  // ひらがな
+                new_page = PAGE_HIRAGANA;
+                ffnx_info("naming_screen: Page switch via sidebar - Hiragana\n");
+                break;
+            case 1:  // カタカナ
+                new_page = PAGE_KATAKANA;
+                ffnx_info("naming_screen: Page switch via sidebar - Katakana\n");
+                break;
+            case 2:  // えいすう
+                new_page = PAGE_EISUU;
+                ffnx_info("naming_screen: Page switch via sidebar - Eisuu\n");
+                break;
+        }
+
+        if (new_page != g_naming_state.current_page) {
+            g_naming_state.current_page = new_page;
+            naming_screen_write_table_to_grid();
+
+            // Clamp grid cursor if switching to Eisuu (only 5 rows instead of 9)
+            if (new_page == PAGE_EISUU) {
+                int vanilla_y = *VANILLA_GRID_CURSOR_Y;
+                if (vanilla_y >= GRID_ROWS_EISUU) {
+                    *VANILLA_GRID_CURSOR_Y = GRID_ROWS_EISUU - 1;
+                    g_naming_state.cursor_y = GRID_ROWS_EISUU - 1;
+                    ffnx_info("naming_screen: Clamped grid cursor Y from %d to %d for Eisuu\n",
+                        vanilla_y, GRID_ROWS_EISUU - 1);
+                }
+            }
+        }
+
+        // DON'T return cursor to grid - stay in sidebar on the selected page item
+        // User selected a page, they should stay on that sidebar item
+        // *VANILLA_IN_SIDEBAR_FLAG = 0;  // REMOVED - keep cursor in sidebar
+    }
+
     // Update tracking for next frame (still needed for page indicator display logic)
     g_prev_name_pos = vanilla_name_pos;
     g_prev_grid_x = vanilla_x;
     g_prev_grid_y = vanilla_y;
     g_prev_in_sidebar = *VANILLA_IN_SIDEBAR_FLAG;
+    g_prev_sidebar_cursor = current_sidebar_cursor;
 }
 
 // ============================================================================
@@ -914,6 +1167,68 @@ static void naming_screen_draw_page_indicator()
     }
 }
 
+// Draw the hand cursor at the correct position
+// Called by naming_screen_draw() to render cursor after state is updated
+// This replaces vanilla's cursor draw which was NOPed out via HEXT patches:
+//   - Grid cursor: 718EFA = 90 90 90 90 90
+//   - Sidebar cursor: 718FD6 = 90 90 90 90 90
+static void naming_screen_draw_cursor()
+{
+    // Z depth as float bits (0.10f = 0x3DCCCCCD)
+    const int Z_DEPTH_BITS = 0x3DCCCCCD;
+
+    int cursor_x, cursor_y;
+    int in_sidebar = *VANILLA_IN_SIDEBAR_FLAG;
+
+    // Use vanilla's exact formula - the coordinates work in vanilla's internal space
+    // Vanilla's draw function handles any scaling internally
+    //
+    // From disassembly at 0x718EC7 (grid) and 0x718FB3 (sidebar):
+    //   Grid: X = cursor_x * 0x21 + 0x21, Y = cursor_y * 0x1A + 0x67
+    //   Sidebar: X = 0x1CC, Y = sidebar_cursor * 0x22 + 0xDD
+
+    if (in_sidebar == 0) {
+        // GRID CURSOR - use vanilla formula exactly
+        int grid_x = *VANILLA_GRID_CURSOR_X;
+        int grid_y = *VANILLA_GRID_CURSOR_Y;
+
+        cursor_x = grid_x * 0x21 + 0x21;  // cursor_x * 33 + 33
+        cursor_y = grid_y * 0x1A + 0x67;  // cursor_y * 26 + 103
+    }
+    else {
+        // SIDEBAR CURSOR - use vanilla formula exactly
+        int sidebar_y_pos = *VANILLA_SIDEBAR_CURSOR_Y;
+
+        cursor_x = 0x1CC;  // 460
+        cursor_y = sidebar_y_pos * 0x22 + 0xDD;  // sidebar_cursor * 34 + 221
+    }
+
+    // Debug: Log cursor position (every 60 frames to avoid spam)
+    static int debug_frame = 0;
+    if (debug_frame++ % 60 == 0) {
+        ffnx_info("naming_screen_draw_cursor: in_sidebar=%d, cursor=(%d,%d), func=%p\n",
+            in_sidebar, cursor_x, cursor_y, g_vanilla_draw_cursor);
+    }
+
+    // Call vanilla's cursor draw function
+    if (g_vanilla_draw_cursor != nullptr) {
+        g_vanilla_draw_cursor(cursor_x, cursor_y, Z_DEPTH_BITS);
+    }
+}
+
+// Public function called from common_flip every frame
+// DISABLED (2025-12-21): We can't replicate the internal state needed by
+// vanilla's cursor draw function (0x6EB3B8). Let vanilla draw the cursor.
+// Our sidebar entry/exit logic in FFNx runs before vanilla's render loop,
+// so the cursor position should be correct (maybe with 1-frame glitch).
+void ff7_naming_screen_draw_cursor_tick()
+{
+    // DISABLED - let vanilla draw cursor
+    // if (g_jp_naming_screen_active) {
+    //     naming_screen_draw_cursor();
+    // }
+}
+
 static void naming_screen_draw()
 {
     // Set flag so our draws don't get filtered (kept for safety, though filter is removed)
@@ -923,10 +1238,36 @@ static void naming_screen_draw()
     // Vanilla now renders directly from 0x921D70 where we write Japanese tables.
     // naming_screen_draw_character_grid();
 
-    // TEMPORARILY RE-ENABLED for debugging - vanilla patches not working yet
-    // HEXT patches at 719227=07 and 719237=30 should make vanilla render 7 sidebar items
-    // but labels aren't appearing. Using FFNx overlay until we fix vanilla rendering.
-    naming_screen_draw_page_indicator();
+    // DISABLED (2025-12-19): Page indicator overlay no longer needed.
+    // Vanilla now handles all 7 sidebar items via HEXT patches.
+    // naming_screen_draw_page_indicator();
+
+    // DISABLED (2025-12-22): Let vanilla draw the hand cursor sprite.
+    // The hand cursor is a SPRITE (white glove), not a font character.
+    // Previous attempts to draw it as font character 0xE0 or 0x1A showed wrong glyphs.
+    // Vanilla's cursor draw at 0x6EB3B8 is no longer NOPed, so it will draw correctly.
+    // Session: f261594e-5490-45bf-9a96-915dff152055
+    /*
+    {
+        const uint16_t HAND_CURSOR_CHAR = 0x1A;  // WRONG - this is not the hand cursor
+        int cursor_x, cursor_y;
+        int in_sidebar = *VANILLA_IN_SIDEBAR_FLAG;
+
+        if (in_sidebar == 0) {
+            int grid_x = *VANILLA_GRID_CURSOR_X;
+            int grid_y = *VANILLA_GRID_CURSOR_Y;
+            cursor_x = GRID_BASE_X + grid_x * CELL_WIDTH - 25;
+            cursor_y = GRID_BASE_Y + grid_y * CELL_HEIGHT;
+        }
+        else {
+            int sidebar_y_pos = *VANILLA_SIDEBAR_CURSOR_Y;
+            cursor_x = SIDEBAR_X - 25;
+            cursor_y = SIDEBAR_Y + sidebar_y_pos * SIDEBAR_ITEM_HEIGHT;
+        }
+
+        common_submit_draw_char_from_buffer_6F564E_jp(cursor_x, cursor_y, 0, HAND_CURSOR_CHAR, NAMING_SCREEN_Z);
+    }
+    */
 
     // REMOVED: Full sidebar (vanilla handles all 7 items now)
     // REMOVED: Name preview (vanilla handles it)
