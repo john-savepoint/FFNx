@@ -52,6 +52,7 @@ extern uint32_t version;
 extern uint32_t steam_edition;
 extern uint32_t estore_edition;
 extern uint32_t ff7_japanese_edition;
+extern std::string ff7_language;  // Language code: "en", "ja", "de", "fr", "es"
 extern uint32_t ff7_do_reset;
 
 #define BASEDIR_LENGTH 512

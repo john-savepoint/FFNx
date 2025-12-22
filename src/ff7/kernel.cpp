@@ -66,26 +66,29 @@ char *kernel2_get_text(uint32_t section_base, uint32_t string_id, uint32_t secti
 void ff7_load_kernel2_wrapper(char *filename)
 {
   // DEBUG: Log kernel2 load
-  ffnx_info("KERNEL2_LOAD: filename=%s, ff7_japanese_edition=%d\n", filename, ff7_japanese_edition);
+  ffnx_info("KERNEL2_LOAD: filename=%s, ff7_language=%s\n", filename, ff7_language.c_str());
 
-  // Japanese edition: try to load from lang-ja path
-  if (ff7_japanese_edition)
+  // Language-based kernel loading: try lang-XX path first
+  // Supports: en, ja, de, fr, es
+  if (ff7_language != "en" || ff7_japanese_edition)
   {
-    char ja_filename[260];
-    // Try lang-ja path: data/lang-ja/kernel/kernel2.bin
-    _snprintf(ja_filename, sizeof(ja_filename), "%s/data/lang-ja/kernel/kernel2.bin", basedir);
+    char lang_filename[260];
+    const char* lang_code = ff7_japanese_edition ? "ja" : ff7_language.c_str();
 
-    FILE* fd = fopen(ja_filename, "rb");
+    // Try lang-XX path: data/lang-XX/kernel/kernel2.bin
+    _snprintf(lang_filename, sizeof(lang_filename), "%s/data/lang-%s/kernel/kernel2.bin", basedir, lang_code);
+
+    FILE* fd = fopen(lang_filename, "rb");
     if (fd != NULL)
     {
       fclose(fd);
-      ffnx_info("KERNEL2_LOAD: Redirecting to Japanese kernel2: %s\n", ja_filename);
-      ff7_externals.kernel_load_kernel2(ja_filename);
+      ffnx_info("KERNEL2_LOAD: Redirecting to %s kernel2: %s\n", lang_code, lang_filename);
+      ff7_externals.kernel_load_kernel2(lang_filename);
       return;
     }
     else
     {
-      ffnx_warning("KERNEL2_LOAD: Japanese kernel2 not found at %s, using default\n", ja_filename);
+      ffnx_warning("KERNEL2_LOAD: %s kernel2 not found at %s, using default\n", lang_code, lang_filename);
     }
   }
 
@@ -99,14 +102,15 @@ void ff7_load_kernel2_wrapper(char *filename)
 	{
 		fd = NULL;
 
-		// Japanese edition: try lang-ja path first
-		if (ff7_japanese_edition)
+		// Language-based: try lang-XX path first
+		if (ff7_language != "en" || ff7_japanese_edition)
 		{
-			_snprintf(chunk_file, sizeof(chunk_file), "%s/data/lang-ja/kernel/kernel.bin.chunk.%i", basedir, n+1);
+			const char* lang_code = ff7_japanese_edition ? "ja" : ff7_language.c_str();
+			_snprintf(chunk_file, sizeof(chunk_file), "%s/data/lang-%s/kernel/kernel.bin.chunk.%i", basedir, lang_code, n+1);
 			fd = fopen(chunk_file, "rb");
 			if (fd != NULL)
 			{
-				ffnx_info("KERNEL_CHUNK: Found Japanese chunk %i at %s\n", n+1, chunk_file);
+				ffnx_info("KERNEL_CHUNK: Found %s chunk %i at %s\n", lang_code, n+1, chunk_file);
 			}
 		}
 

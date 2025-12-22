@@ -124,6 +124,9 @@ uint32_t estore_edition = false;
 // global FF7 flag, check if is japanese edition ( detected as US )
 uint32_t ff7_japanese_edition = false;
 
+// global FF7 language setting: "en", "ja", "de", "fr", "es"
+std::string ff7_language = "en";
+
 // window dimensions requested by the game, normally 640x480
 uint32_t game_width;
 uint32_t game_height;
@@ -1084,6 +1087,10 @@ void common_flip(struct game_obj *game_object)
 
 	// Draw with lighting
 	if (!ff8 && enable_lighting) lighting.draw(game_object);
+
+	// Draw naming screen cursor every frame (FF7 Japanese edition)
+	// This is called here instead of the input hook to avoid cursor blinking
+	if (!ff8) ff7_naming_screen_draw_cursor_tick();
 
 	// draw any z-sorted content now that we're done drawing everything else
 	gl_draw_sorted_deferred();
@@ -2735,7 +2742,13 @@ void get_data_lang_path(PCHAR buffer)
 	case VERSION_FF7_102_US:
 	case VERSION_FF8_12_US_NV:
 	case VERSION_FF8_12_US_EIDOS_NV:
-		if (ff7_japanese_edition)
+		// Use ff7_language setting for FF7 multi-language support
+		// Supports: en, ja, de, fr, es
+		if (!ff8 && !ff7_language.empty())
+		{
+			strcat(buffer, ff7_language.c_str());
+		}
+		else if (ff7_japanese_edition)
 			strcat(buffer, "ja");
 		else
 			strcat(buffer, "en");

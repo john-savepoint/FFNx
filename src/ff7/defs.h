@@ -135,6 +135,8 @@ int sub_6F54A2_jp(byte *a1);
 int ff7_naming_keyboard_input_jp();
 // Force-overwrite counter - when > 0, re-applies Japanese name to savemap each frame
 void ff7_naming_screen_force_overwrite_tick();
+// Draw cursor every frame - called from common_flip to avoid blinking
+void ff7_naming_screen_draw_cursor_tick();
 extern bool g_jp_naming_screen_active;
 extern bool g_jp_naming_screen_drawing;
 extern int g_jp_naming_force_overwrite_frames;

@@ -288,6 +288,11 @@ void read_cfg()
 	ff7_footsteps = config["ff7_footsteps"].value_or(false);
 	ff7_field_center = config["ff7_field_center"].value_or(true);
 	ff7_japanese_edition = config["ff7_japanese_edition"].value_or(false);
+	ff7_language = config["ff7_language"].value_or("en");
+	// If ff7_japanese_edition is set but ff7_language is default, use "ja" for backwards compatibility
+	if (ff7_japanese_edition && ff7_language == "en") {
+		ff7_language = "ja";
+	}
 	enable_analogue_controls = config["enable_analogue_controls"].value_or(false);
 	enable_inverted_vertical_camera_controls = config["enable_inverted_vertical_camera_controls"].value_or(false);
 	enable_inverted_horizontal_camera_controls = config["enable_inverted_horizontal_camera_controls"].value_or(false);
@@ -349,14 +354,9 @@ void read_cfg()
 	switch (version)
 	{
 	case VERSION_FF7_102_US:
-		if (ff7_japanese_edition)
-		{
-			hext_patching_path += "/ja";
-		}
-		else
-		{
-			hext_patching_path += "/en";
-		}
+		// Use ff7_language for HEXT path selection (supports: en, ja, de, fr, es)
+		// Note: VERSION_FF7_102_US is the English executable which we use for all languages
+		hext_patching_path += "/" + ff7_language;
 		break;
 	case VERSION_FF7_102_FR:
 		hext_patching_path += "/fr";

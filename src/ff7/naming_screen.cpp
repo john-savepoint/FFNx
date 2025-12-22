@@ -151,6 +151,13 @@ static int g_prev_sidebar_state_for_y_patch = -1;  // -1 = uninitialized
 // HEXT patch at 718A28=07 should handle this, but as backup we set it directly
 int* const VANILLA_SIDEBAR_ITEM_COUNT = (int*)0x00DD457C;
 
+// ============================================================================
+// SIDEBAR LABEL COLOR - DISABLED (Investigation found this approach doesn't work)
+// ============================================================================
+// Vanilla's sidebar renderer (0x6F51B3) doesn't process FE color codes.
+// See NAMING_SCREEN_YELLOW_HIGHLIGHT_INVESTIGATION.md for details.
+// Session: f69f12b6-63e5-4c7c-9dfe-30e9fa088f96 (2025-12-22)
+
 // Input timing
 const uint32_t INPUT_INITIAL_DELAY = 15;
 const uint32_t INPUT_REPEAT_RATE = 4;
@@ -378,6 +385,15 @@ static void naming_screen_update_cursor_y_patch()
 
     g_prev_sidebar_state_for_y_patch = current_sidebar_state;
 }
+
+// ============================================================================
+// SIDEBAR LABEL COLOR PATCHING - DISABLED
+// ============================================================================
+// This function was intended to dynamically patch sidebar labels with FE D8
+// (yellow color code) for the active page. However, investigation found that
+// vanilla's sidebar renderer (0x6F51B3) doesn't process FE color codes.
+// See NAMING_SCREEN_YELLOW_HIGHLIGHT_INVESTIGATION.md for details.
+// Session: f69f12b6-63e5-4c7c-9dfe-30e9fa088f96 (2025-12-22)
 
 // ============================================================================
 // INITIALIZATION
@@ -839,15 +855,22 @@ static void naming_screen_process_input()
         int cursor_x = *VANILLA_GRID_CURSOR_X;
 
         // Handle ENTRY: Grid -> Sidebar (D-pad RIGHT when at rightmost column)
+        // IMPORTANT: Only enter sidebar if cursor was ALREADY at column 9 before this frame.
+        // This prevents skipping column 9 when moving RIGHT from column 8.
+        // g_prev_grid_x is set at end of frame, so it holds last frame's position.
         if (current_sidebar == 0) {
             if (naming_screen_check_button_edge(pad->dpad_right != 0, &g_naming_state.dpad_right_pressed)) {
-                if (cursor_x == 9) {
+                // Check if cursor was already at column 9 LAST frame (not just arrived this frame)
+                if (cursor_x == 9 && g_prev_grid_x == 9) {
                     // ENTER SIDEBAR
                     *VANILLA_IN_SIDEBAR_FLAG = 1;
                     *VANILLA_SIDEBAR_CURSOR_Y = 0;  // Start at top (ひらがな)
+                    // Re-run cursor Y patch to update render position immediately
+                    // This prevents 1-frame glitch where cursor renders at wrong position
+                    naming_screen_update_cursor_y_patch();
                     ffnx_info("naming_screen: D-pad RIGHT at X=9 - entering sidebar at position 0\n");
                 }
-                // If not at X=9, let vanilla handle the cursor movement
+                // If cursor just arrived at X=9 this frame, don't enter sidebar yet
             }
         }
         // Handle EXIT: Sidebar -> Grid (D-pad LEFT)
@@ -856,6 +879,9 @@ static void naming_screen_process_input()
                 // EXIT SIDEBAR
                 *VANILLA_IN_SIDEBAR_FLAG = 0;
                 *VANILLA_GRID_CURSOR_X = 9;  // Return to rightmost column
+                // Re-run cursor Y patch to update render position immediately
+                // This prevents 1-frame glitch where cursor renders at wrong position
+                naming_screen_update_cursor_y_patch();
                 ffnx_info("naming_screen: D-pad LEFT in sidebar - exiting to grid at X=9\n");
             }
         }
@@ -1110,6 +1136,24 @@ static void naming_screen_draw_character_grid()
     }
 }
 
+// ============================================================
+// SIDEBAR DRAWING - DISABLED (Yellow highlighting not feasible)
+// ============================================================
+// Investigation on 2025-12-22 (Session f69f12b6) found:
+// 1. Vanilla's sidebar text renderer (0x6F51B3) doesn't process FE color codes
+// 2. NOPing vanilla's sidebar render crashes the game
+// 3. FFNx overdraw causes strobing (vertex buffer timing issue, not race condition)
+// 4. The global color variable word_91F028 isn't used by 0x6F51B3
+// 5. The blinking underscore uses a DIFFERENT draw function (not 0x6F51B3)
+//
+// To implement yellow highlighting, would need to either:
+// - Hook 0x6F51B3 in FFNx to add color parameter support
+// - Find and understand the underscore's draw function which does support colors
+// - Solve the FFNx overdraw strobing issue at the rendering pipeline level
+//
+// See: /home/johnzealanddoyle/projects/ff7OG_japanese/docs/NAMING_SCREEN_YELLOW_HIGHLIGHT_INVESTIGATION.md
+
+/*
 static void naming_screen_draw_sidebar()
 {
     for (int i = 0; i < SIDEBAR_ITEMS; i++) {
@@ -1118,21 +1162,14 @@ static void naming_screen_draw_sidebar()
 
         int color = 0; // Default: Gray/White
 
-        // Highlight logic:
-        // - Yellow (5) = currently selected item when cursor is in sidebar
-        // - Cyan (6) = current page indicator (top 3 items only)
-        // - Gray (0) = everything else
-
-        if (g_naming_state.in_sidebar && i == g_naming_state.sidebar_cursor) {
-            color = 5; // Yellow for selected cursor position
-        }
-        else if (i < 3 && i == (int)g_naming_state.current_page) {
-            color = 6; // Cyan for current page indicator
+        if (i < 3 && i == (int)g_naming_state.current_page) {
+            color = 5; // Yellow for current page indicator
         }
 
         naming_screen_draw_string(x, y, SIDEBAR_LABELS[i], color);
     }
 }
+*/
 
 static void naming_screen_draw_name_preview()
 {
@@ -1160,8 +1197,9 @@ static void naming_screen_draw_page_indicator()
         int x = SIDEBAR_X;
         int y = SIDEBAR_Y + (i * SIDEBAR_ITEM_HEIGHT);
 
-        // Highlight current page in cyan (6), others in gray (0)
-        int color = (i == (int)g_naming_state.current_page) ? 6 : 0;
+        // Highlight current page in yellow (5), others in gray (0)
+        // Yellow matches Japanese version behavior
+        int color = (i == (int)g_naming_state.current_page) ? 5 : 0;
 
         naming_screen_draw_string(x, y, SIDEBAR_LABELS[i], color);
     }
@@ -1269,7 +1307,13 @@ static void naming_screen_draw()
     }
     */
 
-    // REMOVED: Full sidebar (vanilla handles all 7 items now)
+    // DISABLED (2025-12-22): FFNx overdraw causes strobing regardless of render flag.
+    // The issue is likely vertex buffer timing - FFNx and vanilla share graphics objects
+    // and the vertices get overwritten at different frame timings.
+    // Need to hook vanilla's 0x6F51B3 function to inject color support directly.
+    // Session: f69f12b6-63e5-4c7c-9dfe-30e9fa088f96
+    // naming_screen_draw_sidebar();
+
     // REMOVED: Name preview (vanilla handles it)
 
     g_jp_naming_screen_drawing = false;

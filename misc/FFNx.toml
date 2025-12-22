@@ -697,6 +697,22 @@ ff7_field_center = true
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ff7_japanese_edition = false
 
+# Language selection for field dialogue
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Controls which language-specific field dialogue LGP file is loaded.
+# This allows running multiple languages from the English executable.
+# Valid values: "en", "ja", "de", "fr", "es"
+# File mapping in data/field/:
+#   en -> flevel_en.lgp (English)
+#   ja -> jfleve.lgp    (Japanese)
+#   de -> gflevel.lgp   (German)
+#   fr -> fflevel.lgp   (French)
+#   es -> sflevel.lgp   (Spanish)
+# Also determines which HEXT patch directory is loaded (hext/ff7/[language]/)
+# NOTE: If ff7_japanese_edition is true and ff7_language is "en", defaults to "ja"
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ff7_language = "en"
+
 ## MODDER OPTIONS - These options are mostly useful to modders and should not be enabled during normal play.
 
 # This is the path where your savefiles will be read.
