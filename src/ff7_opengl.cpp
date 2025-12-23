@@ -456,21 +456,28 @@ void ff7_init_hooks(struct game_obj *_game_object)
 		// Restore Steam release behavior on character name screen when using gamepads in Steam Input mode
 		// Aali driver used to patch out these three functions to fix this issue
 		replace_function(ff7_externals.set_default_input_settings_save, noop);
-		// Hook keyboard_name_input for Japanese naming screen (INJECTION approach 2025-12-13)
-		// - Blanks English grid in memory, renders Japanese overlay
-		// - Writes Japanese chars to vanilla's temp buffer at 0xDD45F0
-		// - Vanilla's confirm logic then saves our Japanese data to savemap
-		replace_function(ff7_externals.keyboard_name_input, ff7_naming_keyboard_input_jp);
 		replace_function(ff7_externals.restore_input_settings, noop);
 
-		// Patch Y cursor limit from 7 rows (0-6) to 9 rows (0-8) for Japanese naming screen
-		// Japanese kana grids have 9 rows vs English's 7 rows
-		// Patch 1: CMP [00DD453C], 06 -> CMP [00DD453C], 08 (increment check)
-		// Address 0x00718E9D contains the 06 byte in the comparison
-		memset_code(0x00718E9D, 0x08, 1);
-		// Patch 2: MOV [00DD453C], 06 -> MOV [00DD453C], 08 (clamp value)
-		// Address 0x00719569 contains the 06 byte in the MOV instruction
-		memset_code(0x00719569, 0x08, 1);
+		// Japanese naming screen patches - only apply when ff7_language == "ja"
+		if (ff7_language == "ja" || ff7_japanese_edition)
+		{
+			// Hook keyboard_name_input for Japanese naming screen (INJECTION approach 2025-12-13)
+			// - Blanks English grid in memory, renders Japanese overlay
+			// - Writes Japanese chars to vanilla's temp buffer at 0xDD45F0
+			// - Vanilla's confirm logic then saves our Japanese data to savemap
+			replace_function(ff7_externals.keyboard_name_input, ff7_naming_keyboard_input_jp);
+
+			// Patch Y cursor limit from 7 rows (0-6) to 9 rows (0-8) for Japanese naming screen
+			// Japanese kana grids have 9 rows vs English's 7 rows
+			// Patch 1: CMP [00DD453C], 06 -> CMP [00DD453C], 08 (increment check)
+			// Address 0x00718E9D contains the 06 byte in the comparison
+			memset_code(0x00718E9D, 0x08, 1);
+			// Patch 2: MOV [00DD453C], 06 -> MOV [00DD453C], 08 (clamp value)
+			// Address 0x00719569 contains the 06 byte in the MOV instruction
+			memset_code(0x00719569, 0x08, 1);
+
+			ffnx_info("Japanese naming screen patches applied (ff7_language=%s)\n", ff7_language.c_str());
+		}
 
     // Patch the default config bitmask so that "Customize" controller option is enabled by default
     memset_code(ff7_externals.config_initialize + 0x36, 0x45, 1);
