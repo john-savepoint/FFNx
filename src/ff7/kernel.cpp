@@ -69,11 +69,13 @@ void ff7_load_kernel2_wrapper(char *filename)
   ffnx_info("KERNEL2_LOAD: filename=%s, ff7_language=%s\n", filename, ff7_language.c_str());
 
   // Language-based kernel loading: try lang-XX path first
-  // Supports: en, ja, de, fr, es
-  if (ff7_language != "en" || ff7_japanese_edition)
+  // Supports ALL languages: en, ja, de, fr, es
+  // Each language has its own kernel2.bin with localized text (Sections 10-27)
+  const char* lang_code = ff7_japanese_edition ? "ja" : ff7_language.c_str();
+
+  if (!ff7_language.empty())
   {
     char lang_filename[260];
-    const char* lang_code = ff7_japanese_edition ? "ja" : ff7_language.c_str();
 
     // Try lang-XX path: data/lang-XX/kernel/kernel2.bin
     _snprintf(lang_filename, sizeof(lang_filename), "%s/data/lang-%s/kernel/kernel2.bin", basedir, lang_code);
@@ -84,7 +86,7 @@ void ff7_load_kernel2_wrapper(char *filename)
       fclose(fd);
       ffnx_info("KERNEL2_LOAD: Redirecting to %s kernel2: %s\n", lang_code, lang_filename);
       ff7_externals.kernel_load_kernel2(lang_filename);
-      return;
+      goto load_chunks;  // Skip default load, proceed to chunk loading
     }
     else
     {
@@ -92,8 +94,10 @@ void ff7_load_kernel2_wrapper(char *filename)
     }
   }
 
+  // Fallback to default kernel2.bin passed by the game
   ff7_externals.kernel_load_kernel2(filename);
 
+load_chunks:
 	char chunk_file[1024]{0};
 	uint32_t chunk_size = 0;
 	FILE* fd;
@@ -102,10 +106,9 @@ void ff7_load_kernel2_wrapper(char *filename)
 	{
 		fd = NULL;
 
-		// Language-based: try lang-XX path first
-		if (ff7_language != "en" || ff7_japanese_edition)
+		// Language-based: try lang-XX path first for ALL languages
+		if (!ff7_language.empty())
 		{
-			const char* lang_code = ff7_japanese_edition ? "ja" : ff7_language.c_str();
 			_snprintf(chunk_file, sizeof(chunk_file), "%s/data/lang-%s/kernel/kernel.bin.chunk.%i", basedir, lang_code, n+1);
 			fd = fopen(chunk_file, "rb");
 			if (fd != NULL)
