@@ -49,12 +49,34 @@ int attempt_redirection(const char* in, char* out, size_t size, bool wantsSteamP
 			strcmp(newIn.data(), "co.bin") == 0
 			)
 		{
-			get_data_lang_path(out);
-			PathAppendA(out, R"(battle)");
-			PathAppendA(out, newIn.data());
+			// CRITICAL: Only redirect scene.bin for structurally compatible languages (EN, JA).
+			// German, French, and Spanish scene.bin have different block structures due to
+			// longer text causing different compression ratios. Using them causes wrong battles.
+			// Block structure: EN/JA [12,6,7,8...] vs DE/FR/ES [11,7,7,8...]
+			bool is_scene = strcmp(newIn.data(), "scene.bin") == 0;
+			bool is_incompatible_lang = !ff8 && !ff7_language.empty() &&
+				(ff7_language == "de" || ff7_language == "fr" || ff7_language == "es");
 
-			if (!fileExists(out))
-				return 1;
+			if (is_scene && is_incompatible_lang)
+			{
+				// For DE/FR/ES, redirect to English scene.bin instead of language-specific
+				// Enemy names will be injected via memory patching
+				strcpy(out, basedir);
+				PathAppendA(out, R"(data\lang-en\battle)");
+				PathAppendA(out, newIn.data());
+
+				if (!fileExists(out))
+					return 1;
+			}
+			else
+			{
+				get_data_lang_path(out);
+				PathAppendA(out, R"(battle)");
+				PathAppendA(out, newIn.data());
+
+				if (!fileExists(out))
+					return 1;
+			}
 		}
 		else
 		{

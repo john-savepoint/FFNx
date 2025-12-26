@@ -64,15 +64,95 @@ namespace ff7::battle
 
 	int load_scene_bin_chunk(char *filename, int offset, int size, char **out_buffer, void (*callback)(void))
 	{
-		int ret = ff7_externals.engine_load_bin_file_sub_419210(filename, offset, size, out_buffer, callback);
-
+		char lang_filename[1024]{0};
 		char chunk_file[1024]{0};
 		uint32_t chunk_size = 0;
-		FILE* fd;
+		FILE* fd = NULL;
+		int ret;
 
-		_snprintf(chunk_file, sizeof(chunk_file), "%s/%s/battle/scene.bin.chunk.%i", basedir, direct_mode_path.c_str(), (offset >> 13) + 1);
+		// Language-aware scene.bin loading
+		// CRITICAL: Only Japanese scene.bin is structurally compatible with the US executable.
+		// German, French, and Spanish scene.bin have different block structures due to
+		// longer text causing different GZIP compression ratios, resulting in different
+		// scenes-per-block distribution. Using them causes wrong battle encounters.
+		//
+		// Block structure (scenes per block):
+		//   EN/JA: [12, 6, 7, 8, 6, 6, 8, 8, 12, 8] - Compatible
+		//   DE/FR/ES: [11, 7, 7, 8, 6, 6, 7, 7, 13, 8] - INCOMPATIBLE
+		//
+		// Solution: Always use English scene.bin structure for DE/FR/ES.
+		// Enemy names will be injected via memory patching in a future update.
 
-		if ((fd = fopen(chunk_file, "rb")) != NULL)
+		// Determine which scene.bin to use based on structural compatibility
+		const char* scene_lang = "en";  // Default to English (safe)
+		bool use_lang_scene = false;
+
+		if (ff7_japanese_edition || ff7_language == "ja")
+		{
+			// Japanese scene.bin has same block structure as English - safe to use
+			scene_lang = "ja";
+			use_lang_scene = true;
+		}
+		else if (ff7_language == "en" || ff7_language.empty())
+		{
+			// English or no language set - use default path
+			use_lang_scene = false;
+		}
+		else
+		{
+			// DE/FR/ES - these have incompatible block structures!
+			// Use English scene.bin to ensure correct battle encounters.
+			// TODO: Implement enemy name injection from external text files
+			if (trace_all || trace_files)
+				ffnx_trace("load_scene_bin_chunk: Language '%s' has incompatible scene.bin structure, using English\n", ff7_language.c_str());
+			use_lang_scene = false;
+		}
+
+		if (use_lang_scene)
+		{
+			// Try language-specific scene.bin (only for Japanese)
+			_snprintf(lang_filename, sizeof(lang_filename), "%s/data/lang-%s/battle/scene.bin", basedir, scene_lang);
+
+			if ((fd = fopen(lang_filename, "rb")) != NULL)
+			{
+				fclose(fd);
+				if (trace_all || trace_files)
+					ffnx_trace("load_scene_bin_chunk: Using %s scene.bin: %s\n", scene_lang, lang_filename);
+				ret = ff7_externals.engine_load_bin_file_sub_419210(lang_filename, offset, size, out_buffer, callback);
+			}
+			else
+			{
+				if (trace_all || trace_files)
+					ffnx_trace("load_scene_bin_chunk: %s scene.bin not found at %s, using default\n", scene_lang, lang_filename);
+				ret = ff7_externals.engine_load_bin_file_sub_419210(filename, offset, size, out_buffer, callback);
+			}
+		}
+		else
+		{
+			// Use default English scene.bin
+			ret = ff7_externals.engine_load_bin_file_sub_419210(filename, offset, size, out_buffer, callback);
+		}
+
+		// Check for language-specific chunk overrides
+		// Note: For DE/FR/ES, we still allow chunk overrides from their lang directories
+		// in case modders provide properly structured chunks
+		if (!ff7_language.empty())
+		{
+			const char* chunk_lang = ff7_japanese_edition ? "ja" : ff7_language.c_str();
+			_snprintf(chunk_file, sizeof(chunk_file), "%s/data/lang-%s/battle/scene.bin.chunk.%i", basedir, chunk_lang, (offset >> 13) + 1);
+			fd = fopen(chunk_file, "rb");
+			if (fd != NULL && (trace_all || trace_files))
+				ffnx_trace("load_scene_bin_chunk: Found %s chunk %i\n", chunk_lang, (offset >> 13) + 1);
+		}
+
+		// Fall back to direct mode chunk overrides
+		if (fd == NULL)
+		{
+			_snprintf(chunk_file, sizeof(chunk_file), "%s/%s/battle/scene.bin.chunk.%i", basedir, direct_mode_path.c_str(), (offset >> 13) + 1);
+			fd = fopen(chunk_file, "rb");
+		}
+
+		if (fd != NULL)
 		{
 			fseek(fd, 0L, SEEK_END);
 			chunk_size = ftell(fd);
