@@ -29,6 +29,7 @@
 #include "ff7/widescreen.h"
 #include "ff7/time.h"
 #include "ff7/battle/defs.h"
+#include "ff7/battle/scene_text.h"
 #include "ff7/field/defs.h"
 #include "ff7/world/defs.h"
 
@@ -140,6 +141,16 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	patch_code_uint((uint32_t)ff7_externals.kernel_load_kernel2 + 0x1D, 20 * 65536);
 	replace_call_function(ff7_externals.kernel_init + 0x1FD, ff7_load_kernel2_wrapper);
 	replace_call_function(ff7_externals.battle_scene_bin_sub_5D1050 + 0x85, ff7::battle::load_scene_bin_chunk);
+
+	// Multi-language support: Patch scene.bin block divisor for DE/FR/ES
+	// These languages have 11 scenes in block 0 instead of 12
+	// This allows using native language scene.bin files directly
+	ff7::battle::patch_scene_block_divisor();
+
+	// Multi-language scene text injection (for DE/FR/ES using English scene.bin)
+	// Loads localized enemy/attack names from .dat files
+	// inject_scene_text() is called from load_scene_bin_chunk in battle.cpp
+	ff7::battle::init_scene_text();
 
 	replace_function(ff7_externals.read_field_file, ff7_read_field_file);
 
@@ -392,6 +403,13 @@ void ff7_init_hooks(struct game_obj *_game_object)
 		replace_function(ff7_externals.sub_6F54A2, sub_6F54A2_jp);
 	}
 
+	// ###########################
+	// Multi-language enemy name hook (Western editions)
+	// ###########################
+	// For DE/FR/ES: Hook enemy name retrieval to inject localized text
+	// This is separate from Japanese hooks as it doesn't change font rendering
+	ff7::battle::install_enemy_name_hook();
+
 	//######################
 	// menu rendering fix
 	//######################
@@ -493,6 +511,7 @@ void ff7_init_hooks(struct game_obj *_game_object)
 
 		// GIL, MASTER MATERIA, BATTLE WON
 		replace_call_function(ff7_externals.battle_enemy_killed_sub_433BD2 + 0x2AF, ff7::battle::battle_sub_5C7F94);
+
 		replace_call_function(ff7_externals.menu_sub_6CDA83 + 0x20, ff7_menu_battle_end_sub_6C9543);
 		if (version == VERSION_FF7_102_US) {
 			replace_call_function(ff7_externals.menu_shop_loop + 0x327B, ff7_get_materia_gil);

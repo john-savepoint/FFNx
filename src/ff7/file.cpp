@@ -63,21 +63,40 @@ static void apply_language_routing(char* modified_filename, size_t size)
 	// en is default - no routing needed for most files
 
 	// ============================================================
-	// FIELD DIALOGUE (data/field/)
-	// Pattern: flevel.lgp -> [prefix]flevel.lgp or flevel_en.lgp
+	// FIELD DATA (data/field/)
+	// Pattern: flevel.lgp -> flevel_en.lgp for ALL languages
+	//
+	// CRITICAL: All languages now use English flevel.lgp for encounters!
+	// This ensures correct battle formation mappings that work with
+	// the English scene.bin block structure (12 scenes per block).
+	//
+	// German/French/Spanish text is handled via separate text injection
+	// from their respective language LGP files (gflevel, fflevel, sflevel).
 	// ============================================================
+	// ALWAYS log flevel routing for debugging
+	ffnx_info("[MLANG-ROUTE] Checking file: '%s' (lang=%s, is_de=%d)\n", modified_filename, lang, is_de);
+
 	if(strstr(modified_filename, "flevel.lgp") != NULL)
 	{
 		const char* new_lgp = NULL;
+
+		// Use English flevel for DE/FR/ES to get correct encounter mappings
+		// Japanese has its own compatible structure, so keep jfleve.lgp
 		if(ff7_language == "en") new_lgp = "flevel_en.lgp";
 		else if(is_ja) new_lgp = "jfleve.lgp";
-		else if(is_de) new_lgp = "gflevel.lgp";
-		else if(is_fr) new_lgp = "fflevel.lgp";
-		else if(is_es) new_lgp = "sflevel.lgp";
+		else if(is_de) new_lgp = "flevel_en.lgp";  // Changed: Use EN for correct encounters
+		else if(is_fr) new_lgp = "flevel_en.lgp";  // Changed: Use EN for correct encounters
+		else if(is_es) new_lgp = "flevel_en.lgp";  // Changed: Use EN for correct encounters
+
+		ffnx_info("[MLANG-FIELD] Routing flevel: current='%s', new_lgp='%s'\n", modified_filename, new_lgp ? new_lgp : "NULL");
 
 		if(new_lgp && replace_lgp_name(modified_filename, size, "flevel.lgp", new_lgp))
 		{
-			if(trace_all || trace_files) ffnx_trace("Language routing [field]: %s (lang=%s)\n", modified_filename, lang);
+			ffnx_info("[MLANG-FIELD] SUCCESS: Routed to %s\n", modified_filename);
+		}
+		else
+		{
+			ffnx_info("[MLANG-FIELD] FAILED or skipped routing\n");
 		}
 	}
 

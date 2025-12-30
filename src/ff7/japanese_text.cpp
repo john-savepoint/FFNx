@@ -32,6 +32,7 @@ const int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text in d
 
 #include "../ff7.h"
 #include "defs.h"
+#include "battle/scene_text.h"
 
 // Button placeholder labels for Japanese field text
 // Format: jafont_1 byte sequences for each button function
@@ -1673,6 +1674,20 @@ void draw_text_top_display_6D1CC0_jp(int a1, __int16 menu_box_idx, char a3, unsi
           break;
         case 7:
           ff7_externals.sub_6D70F1(a4);
+          // Multi-language injection: Replace enemy name with localized text for DE/FR/ES
+          ffnx_trace("Scene text: case 7 hit, a4=%d, needs_injection=%d\n", a4, ff7::battle::needs_text_injection());
+          if (ff7::battle::needs_text_injection())
+          {
+              uint16_t scene_id = ff7_externals.modules_global_object->battle_id;
+              const char* localized_name = ff7::battle::get_localized_enemy_name(scene_id, a4);
+              ffnx_trace("Scene text: scene_id=%d, localized_name=%p, first_byte=0x%02X\n",
+                  scene_id, localized_name, localized_name ? (unsigned char)localized_name[0] : 0);
+              if (localized_name && localized_name[0] != 0xFF)
+              {
+                  memcpy(ff7_externals.byte_DC3640, localized_name, 32);
+                  ffnx_trace("Scene text: Injected enemy name for scene %d, enemy %d\n", scene_id, a4);
+              }
+          }
           text_sub_41963C = (attack_name_fixed_buffer *)ff7_externals.byte_DC3640;
           break;
         case 13:

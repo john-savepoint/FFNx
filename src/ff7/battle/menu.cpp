@@ -37,6 +37,9 @@ namespace ff7::battle
         battle_depth_clear();
 
         if (enable_time_cycle) newRenderer.setTimeFilterEnabled(false);
+
+        // NOTE: Enemy name injection moved to load_battle_stage() to run BEFORE rendering
+        // This avoids race conditions with the text renderer
     }
 
     void battle_depth_clear()
