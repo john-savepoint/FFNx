@@ -2410,7 +2410,8 @@ void Renderer::setSDFMode(bool enabled)
         }
 
         // Set SDF parameters uniform
-        float sdfParams[4] = { sdf_pixel_range, 0.0f, 0.0f, 0.0f };
+        // x: pixel_range, y: thickness, z: shadow_offset, w: shadow_opacity
+        float sdfParams[4] = { sdf_pixel_range, sdf_thickness, sdf_shadow_offset, sdf_shadow_opacity };
         setUniform(RendererUniform::SDF_PARAMS, sdfParams);
     }
     else

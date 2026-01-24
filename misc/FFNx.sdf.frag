@@ -24,7 +24,10 @@ $input v_color0, v_texcoord0
 SAMPLER2D(tex_0, 0);  // SDF texture (RGB channels contain distance field)
 
 uniform vec4 SDFParams;
-#define pxRange SDFParams.x  // Distance field spread in pixels (default: 4.0)
+#define pxRange SDFParams.x         // Distance field spread in pixels (default: 4.0)
+#define thickness SDFParams.y       // Glyph thickness adjustment (default: 0.5)
+#define shadowOffset SDFParams.z    // Shadow offset in pixels (default: 1.0)
+#define shadowOpacity SDFParams.w   // Shadow transparency (default: 0.5)
 
 // Compute median of RGB channels
 // This preserves sharp corners better than single-channel SDF
@@ -45,13 +48,13 @@ void main() {
     // pxRange defines how many pixels the distance field covers
     float screenPxDistance = pxRange * (sd - 0.5);
 
-    // Generate smooth anti-aliased alpha
-    // Transition happens over ~1 pixel width
-    float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+    // Generate smooth anti-aliased alpha with thickness adjustment
+    // thickness controls how bold the text appears (0.5 = normal, higher = bolder)
+    float opacity = clamp(screenPxDistance + thickness, 0.0, 1.0);
 
-    // Sample SDF offset for drop shadow
-    vec2 shadowOffset = vec2(1.0, 1.0) / vec2(1024.0, 1024.0);  // 1 pixel offset
-    vec3 shadowMsd = texture2D(tex_0, v_texcoord0 + shadowOffset).rgb;
+    // Sample SDF offset for drop shadow (configurable offset)
+    vec2 shadowOffsetVec = vec2(shadowOffset, shadowOffset) / vec2(1024.0, 1024.0);
+    vec3 shadowMsd = texture2D(tex_0, v_texcoord0 + shadowOffsetVec).rgb;
     float shadowSd = median(shadowMsd.r, shadowMsd.g, shadowMsd.b);
     float shadowDistance = pxRange * (shadowSd - 0.5);
     float shadowOpacity = clamp(shadowDistance + 0.5, 0.0, 1.0);
@@ -64,7 +67,7 @@ void main() {
     // Composite: shadow (dark) behind text (colored)
     vec3 shadowColor = vec3(0.0, 0.0, 0.0);  // Black shadow
     vec3 finalColor = mix(shadowColor, v_color0.rgb, opacity);
-    float finalAlpha = max(opacity, shadowOpacity * 0.5);  // Shadow is semi-transparent
+    float finalAlpha = max(opacity, shadowOpacity * shadowOpacity);  // Use config shadow opacity
 
     gl_FragColor = vec4(finalColor, v_color0.a * finalAlpha);
 }

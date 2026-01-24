@@ -109,6 +109,9 @@ extern bool enable_anisotropic;
 extern bool enable_bilinear;
 extern bool enable_sdf_fonts;
 extern float sdf_pixel_range;
+extern float sdf_thickness;      // Adjusts glyph boldness (0.5 = normal, higher = bolder)
+extern float sdf_shadow_offset;  // Shadow offset in pixels (1.0 = 1 pixel)
+extern float sdf_shadow_opacity; // Shadow transparency (0.0-1.0)
 extern bool enable_lighting;
 extern bool prefer_lighting_cpu_calculations;
 extern long game_lighting;
