@@ -57,17 +57,18 @@ void main() {
     vec3 shadowMsd = texture2D(tex_0, v_texcoord0 + shadowOffsetVec).rgb;
     float shadowSd = median(shadowMsd.r, shadowMsd.g, shadowMsd.b);
     float shadowDistance = pxRange * (shadowSd - 0.5);
-    float shadowOpacity = clamp(shadowDistance + 0.5, 0.0, 1.0);
+    float shadowValue = clamp(shadowDistance + 0.5, 0.0, 1.0);
 
     // Discard if neither text nor shadow is visible
-    if (opacity < 0.01 && shadowOpacity < 0.01) {
+    if (opacity < 0.01 && shadowValue < 0.01) {
         discard;
     }
 
     // Composite: shadow (dark) behind text (colored)
     vec3 shadowColor = vec3(0.0, 0.0, 0.0);  // Black shadow
     vec3 finalColor = mix(shadowColor, v_color0.rgb, opacity);
-    float finalAlpha = max(opacity, shadowOpacity * shadowOpacity);  // Use config shadow opacity
+    // Use configured shadow opacity (SDFParams.w = shadowOpacity uniform)
+    float finalAlpha = max(opacity, shadowValue * shadowOpacity);
 
     gl_FragColor = vec4(finalColor, v_color0.a * finalAlpha);
 }
