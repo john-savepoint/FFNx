@@ -283,6 +283,10 @@ void Renderer::updateRendererShaderPaths()
     fragmentFieldShadowPath += ".smooth" + shaderSuffix + ".frag";
     vertexBlitPath += ".flat" + shaderSuffix + ".vert";
     fragmentBlitPath += ".flat" + shaderSuffix + ".frag";
+    vertexSdfPathFlat += ".flat" + shaderSuffix + ".vert";
+    fragmentSdfPathFlat += ".flat" + shaderSuffix + ".frag";
+    vertexSdfPathSmooth += ".smooth" + shaderSuffix + ".vert";
+    fragmentSdfPathSmooth += ".smooth" + shaderSuffix + ".frag";
 }
 
 // Via https://dev.to/pperon/hello-bgfx-4dka
@@ -1009,6 +1013,18 @@ void Renderer::init()
         true
     );
 
+    backendProgramHandles[RendererProgram::SDF_FONT_FLAT] = bgfx::createProgram(
+        getShader(vertexSdfPathFlat.c_str()),
+        getShader(fragmentSdfPathFlat.c_str()),
+        true
+    );
+
+    backendProgramHandles[RendererProgram::SDF_FONT_SMOOTH] = bgfx::createProgram(
+        getShader(vertexSdfPathSmooth.c_str()),
+        getShader(fragmentSdfPathSmooth.c_str()),
+        true
+    );
+
     vertexLayout
         .begin()
         .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
@@ -1064,6 +1080,8 @@ void Renderer::init()
     bgfxUniformHandles[RendererUniform::LIGHT_INV_VIEW_PROJ_TEX_MATRIX] = createUniform("lightInvViewProjTexMatrix", bgfx::UniformType::Mat4);
     bgfxUniformHandles[RendererUniform::VIEW_OFFSET_MATRIX] = createUniform("viewOffsetMatrix", bgfx::UniformType::Mat4);
     bgfxUniformHandles[RendererUniform::INV_VIEW_OFFSET_MATRIX] = createUniform("invViewOffsetMatrix", bgfx::UniformType::Mat4);
+
+    bgfxUniformHandles[RendererUniform::SDF_PARAMS] = createUniform("SDFParams", bgfx::UniformType::Vec4);
 
     bgfxUniformHandles[RendererUniform::GAME_LIGHTING_FLAGS] = createUniform("gameLightingFlags", bgfx::UniformType::Vec4);
     bgfxUniformHandles[RendererUniform::GAME_GLOBAL_LIGHT_COLOR] = createUniform("gameGlobalLightColor", bgfx::UniformType::Vec4);

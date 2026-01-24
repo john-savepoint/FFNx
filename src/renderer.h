@@ -134,6 +134,7 @@ enum RendererUniform
     LIGHT_INV_VIEW_PROJ_TEX_MATRIX,
     VIEW_OFFSET_MATRIX,
     INV_VIEW_OFFSET_MATRIX,
+    SDF_PARAMS,
 
     COUNT,
 };
@@ -250,6 +251,8 @@ private:
         POSTPROCESSING,
         OVERLAY,
         BLIT,
+        SDF_FONT_FLAT,
+        SDF_FONT_SMOOTH,
         COUNT
     };
 
@@ -348,6 +351,10 @@ private:
     std::string fragmentFieldShadowPath = "shaders/FFNx.field.shadow";
     std::string vertexBlitPath = "shaders/FFNx.blit";
     std::string fragmentBlitPath = "shaders/FFNx.blit";
+    std::string vertexSdfPathFlat = "shaders/FFNx.sdf";
+    std::string fragmentSdfPathFlat = "shaders/FFNx.sdf";
+    std::string vertexSdfPathSmooth = "shaders/FFNx.sdf";
+    std::string fragmentSdfPathSmooth = "shaders/FFNx.sdf";
 
     bgfx::ViewId backendViewId = 1;
     RendererProgram backendProgram = RendererProgram::SMOOTH;

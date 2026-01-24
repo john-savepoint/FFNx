@@ -107,6 +107,8 @@ extern bool mdef_fix;
 extern long enable_antialiasing;
 extern bool enable_anisotropic;
 extern bool enable_bilinear;
+extern bool enable_sdf_fonts;
+extern float sdf_pixel_range;
 extern bool enable_lighting;
 extern bool prefer_lighting_cpu_calculations;
 extern long game_lighting;

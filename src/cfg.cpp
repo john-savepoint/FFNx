@@ -96,6 +96,8 @@ bool mdef_fix;
 long enable_antialiasing;
 bool enable_anisotropic;
 bool enable_bilinear;
+bool enable_sdf_fonts;
+float sdf_pixel_range;
 bool enable_lighting;
 bool prefer_lighting_cpu_calculations;
 long game_lighting;
@@ -257,6 +259,8 @@ void read_cfg()
 	enable_antialiasing = config["enable_antialiasing"].value_or(0);
 	enable_anisotropic = config["enable_anisotropic"].value_or(true);
 	enable_bilinear = config["enable_bilinear"].value_or(false);
+	enable_sdf_fonts = config["enable_sdf_fonts"].value_or(false);
+	sdf_pixel_range = config["sdf_pixel_range"].value_or(4.0);
 	enable_lighting = config["enable_lighting"].value_or(false);
 	prefer_lighting_cpu_calculations = config["prefer_lighting_cpu_calculations"].value_or(true);
 	game_lighting = config["game_lighting"].value_or(GAME_LIGHTING_PER_VERTEX);
