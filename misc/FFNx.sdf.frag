@@ -49,7 +49,22 @@ void main() {
     // Transition happens over ~1 pixel width
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
-    // Use vertex color from the game (respects opcodes for color/animation/grayed out)
-    // Multiply vertex alpha with computed SDF opacity for proper anti-aliasing
-    gl_FragColor = vec4(v_color0.rgb, v_color0.a * opacity);
+    // Sample SDF offset for drop shadow
+    vec2 shadowOffset = vec2(1.0, 1.0) / vec2(1024.0, 1024.0);  // 1 pixel offset
+    vec3 shadowMsd = texture2D(tex_0, v_texcoord0 + shadowOffset).rgb;
+    float shadowSd = median(shadowMsd.r, shadowMsd.g, shadowMsd.b);
+    float shadowDistance = pxRange * (shadowSd - 0.5);
+    float shadowOpacity = clamp(shadowDistance + 0.5, 0.0, 1.0);
+
+    // Discard if neither text nor shadow is visible
+    if (opacity < 0.01 && shadowOpacity < 0.01) {
+        discard;
+    }
+
+    // Composite: shadow (dark) behind text (colored)
+    vec3 shadowColor = vec3(0.0, 0.0, 0.0);  // Black shadow
+    vec3 finalColor = mix(shadowColor, v_color0.rgb, opacity);
+    float finalAlpha = max(opacity, shadowOpacity * 0.5);  // Shadow is semi-transparent
+
+    gl_FragColor = vec4(finalColor, v_color0.a * finalAlpha);
 }
