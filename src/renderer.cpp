@@ -2415,14 +2415,19 @@ void Renderer::setSDFMode(bool enabled)
     }
     else
     {
-        // Restore non-SDF program based on base interpolation qualifier
-        if (baseInterpolationQualifier == RendererInterpolationQualifier::FLAT)
+        // Only restore non-SDF program if we're currently using an SDF program
+        if (backendProgram == RendererProgram::SDF_FONT_FLAT || backendProgram == RendererProgram::SDF_FONT_SMOOTH)
         {
-            backendProgram = RendererProgram::FLAT;
-        }
-        else
-        {
-            backendProgram = RendererProgram::SMOOTH;
+            if (baseInterpolationQualifier == RendererInterpolationQualifier::FLAT)
+            {
+                backendProgram = RendererProgram::FLAT;
+                if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: Restoring FLAT\n", __func__);
+            }
+            else
+            {
+                backendProgram = RendererProgram::SMOOTH;
+                if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: Restoring SMOOTH\n", __func__);
+            }
         }
     }
 }
