@@ -33,24 +33,23 @@ float median(float r, float g, float b) {
 }
 
 void main() {
-    // DEBUG: IMMEDIATE RED OUTPUT - NO TEXTURE SAMPLING
-    // If this doesn't show red, the shader literally isn't running
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-
-    /* DISABLED FOR DEBUG
     // Sample the SDF texture
     vec3 msd = texture2D(tex_0, v_texcoord0).rgb;
 
     // Compute signed distance
+    // msd contains distance values in [0, 1] range
+    // 0.5 = exactly on edge, >0.5 = inside glyph, <0.5 = outside
     float sd = median(msd.r, msd.g, msd.b);
 
     // Convert distance to screen-space pixels
+    // pxRange defines how many pixels the distance field covers
     float screenPxDistance = pxRange * (sd - 0.5);
 
     // Generate smooth anti-aliased alpha
+    // Transition happens over ~1 pixel width
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
-    // PRODUCTION: Use this instead when testing complete
-    // gl_FragColor = vec4(v_color0.rgb, v_color0.a * opacity);
-    */
+    // Use vertex color from the game (respects opcodes for color/animation/grayed out)
+    // Multiply vertex alpha with computed SDF opacity for proper anti-aliasing
+    gl_FragColor = vec4(v_color0.rgb, v_color0.a * opacity);
 }
