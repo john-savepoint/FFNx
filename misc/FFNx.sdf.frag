@@ -49,6 +49,9 @@ void main() {
     // Transition happens over ~1 pixel width
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
-    // Apply vertex color and computed opacity
-    gl_FragColor = vec4(v_color0.rgb, v_color0.a * opacity);
+    // DEBUG: Render SDF text in bright red to verify shader is active
+    gl_FragColor = vec4(1.0, 0.0, 0.0, opacity);
+
+    // PRODUCTION: Use this instead when testing complete
+    // gl_FragColor = vec4(v_color0.rgb, v_color0.a * opacity);
 }

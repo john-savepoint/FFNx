@@ -155,19 +155,45 @@ uint32_t load_normal_texture(const void* data, uint32_t dataSize, const char* na
 			_snprintf(filename, sizeof(filename), "%s/%s/%s_%02i.%s", basedir, tex_path.c_str(), name, palette_index, mod_ext[idx].c_str());
 		}
 
+		// Try loading SDF variant first if SDF fonts are enabled
+		if (enable_sdf_fonts)
+		{
+			char sdf_filename[sizeof(basedir) + 1024]{ 0 };
+
+			// Insert "_sdf" before the file extension
+			char* dot = strrchr(filename, '.');
+			if (dot)
+			{
+				// Copy everything before the dot
+				size_t base_len = dot - filename;
+				strncpy(sdf_filename, filename, base_len);
+				sdf_filename[base_len] = '\0';
+
+				// Append "_sdf" and the extension
+				strcat(sdf_filename, "_sdf");
+				strcat(sdf_filename, dot);
+
+				// Try loading the SDF variant
+				ret = load_texture_helper(sdf_filename, width, height, mod_ext[idx] == "png", true);
+
+				if (ret)
+				{
+					gl_set->is_sdf = 1;
+					if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, sdf_filename);
+					break;
+				}
+			}
+		}
+
+		// If SDF variant not found, try regular texture
 		ret = load_texture_helper(filename, width, height, mod_ext[idx] == "png", true);
 
 		if(ret)
 		{
-			// Detect SDF textures by filename pattern (contains "_sdf")
-			if (enable_sdf_fonts && strstr(filename, "_sdf"))
+			// Only log if not already logged as SDF
+			if (!gl_set->is_sdf && trace_all)
 			{
-				gl_set->is_sdf = 1;
-				if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, filename);
-			}
-			else
-			{
-				if (trace_all) ffnx_trace("Created external texture: %u from %s\n", ret, filename);
+				ffnx_trace("Created external texture: %u from %s\n", ret, filename);
 			}
 			break;
 		}
