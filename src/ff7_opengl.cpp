@@ -520,8 +520,11 @@ void ff7_init_hooks(struct game_obj *_game_object)
 		}
 		replace_function(ff7_externals.opcode_increase_gil_call, ff7_opcode_increase_gil_call);
 
-		// 1ST LIMIT BREAK
-		replace_function(ff7_externals.display_battle_action_text_sub_6D71FA, ff7::battle::display_battle_action_text_sub_6D71FA);
+		// 1ST LIMIT BREAK - DISABLED: causes crash due to replace_function patching entry point
+		// The stored address gets patched, so calling through it creates infinite loop
+		// TODO: Use replace_call_function on call sites instead, or implement proper trampoline
+		// ff7::battle::g_original_display_battle_action_text = ff7_externals.display_battle_action_text_sub_6D71FA;
+		// replace_function(ff7_externals.display_battle_action_text_sub_6D71FA, ff7::battle::display_battle_action_text_sub_6D71FA);
 
 		// MATERIA GOT
 		replace_call_function(ff7_externals.opcode_add_materia_inventory_call + 0x43, ff7_menu_sub_6CBCF3);

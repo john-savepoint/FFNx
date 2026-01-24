@@ -2108,6 +2108,21 @@ void Renderer::useTexture(uint16_t rt, uint32_t slot)
     {
         internalState.texHandlers[slot] = { rt };
         if (slot == RendererTextureSlot::TEX_Y) isTexture(true);
+
+        // Check if this texture is an SDF texture and activate SDF mode
+        if (slot == RendererTextureSlot::TEX_Y && enable_sdf_fonts)
+        {
+            auto it = internalState.sdfTextures.find(rt);
+            if (it != internalState.sdfTextures.end() && it->second)
+            {
+                setSDFMode(true);
+                if (trace_all) ffnx_trace("Renderer::%s: Activated SDF mode for texture %u\n", __func__, rt);
+            }
+            else
+            {
+                setSDFMode(false);
+            }
+        }
     }
     else
     {
@@ -2386,6 +2401,12 @@ void Renderer::setSDFMode(bool enabled)
         setUniform(RendererUniform::SDF_PARAMS, sdfParams);
     }
     // If disabled, program stays as already set (FLAT or SMOOTH)
+}
+
+void Renderer::registerSDFTexture(uint16_t textureId, bool isSDF)
+{
+    internalState.sdfTextures[textureId] = isSDF;
+    if (trace_all) ffnx_trace("Renderer::%s: Registered texture %u as SDF=%d\n", __func__, textureId, isSDF);
 }
 
 void Renderer::setPrimitiveType(RendererPrimitiveType type)

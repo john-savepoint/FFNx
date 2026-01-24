@@ -29,6 +29,9 @@
 
 namespace ff7::battle
 {
+	// Store original function pointer before replacement (set in ff7_opengl.cpp)
+	uint32_t g_original_display_battle_action_text = 0;
+
 	// ============================================================================
 	// Scene.bin block divisor patch for multi-language support
 	// ============================================================================
@@ -183,10 +186,12 @@ namespace ff7::battle
 	}
 
 	void display_battle_action_text_sub_6D71FA(short command_id, short action_id){
-		ff7_externals.battle_actor_data->formation_entry = 1;
-		ff7_externals.battle_actor_data->command_index = command_id;
-		ff7_externals.battle_actor_data->action_index = action_id;
+		// Call the STORED original function (not ff7_externals which is now patched)
+		if (g_original_display_battle_action_text) {
+			((void(*)(short, short))g_original_display_battle_action_text)(command_id, action_id);
+		}
 
+		// Then do achievement tracking
 		g_FF7SteamAchievements->unlockFirstLimitBreakAchievement(command_id, action_id);
 	}
 
@@ -353,17 +358,30 @@ namespace ff7::battle
 		{
 			char* dest = (char*)enemy_addrs[i];
 
-			// Just LOG what's at the address, don't write anything
-			// This tests if the crash is caused by writing or something else
-			ffnx_info("[MLANG-INJECT] Enemy %d @ 0x%08X: current bytes = %02X %02X %02X %02X %02X %02X %02X %02X\n",
-				i, enemy_addrs[i],
-				(unsigned char)dest[0], (unsigned char)dest[1],
-				(unsigned char)dest[2], (unsigned char)dest[3],
-				(unsigned char)dest[4], (unsigned char)dest[5],
-				(unsigned char)dest[6], (unsigned char)dest[7]);
+			// Get the localized name for this enemy slot
+			const char* localized_name = get_localized_enemy_name(scene_id, i);
+			if (localized_name && localized_name[0] != '\0')
+			{
+				// Calculate safe length - max 31 chars, stop at 0x00 or 0xFF terminator
+				size_t name_len = 0;
+				while (name_len < 31 && localized_name[name_len] != '\0' && (unsigned char)localized_name[name_len] != 0xFF)
+					name_len++;
 
-			// DISABLED: No writing, just logging
-			// If the game still crashes, the problem is NOT our injection
+				// Copy the name
+				memcpy(dest, localized_name, name_len);
+
+				// Pad remaining bytes with 0xFF (FF7 text terminator)
+				for (size_t j = name_len; j < 32; j++)
+					dest[j] = (char)0xFF;
+
+				ffnx_info("[MLANG-INJECT] Enemy %d @ 0x%08X: wrote '%s' (%zu bytes)\n",
+					i, enemy_addrs[i], localized_name, name_len);
+			}
+			else
+			{
+				ffnx_info("[MLANG-INJECT] Enemy %d @ 0x%08X: no localized name for scene %d slot %d\n",
+					i, enemy_addrs[i], scene_id, i);
+			}
 		}
 
 		ffnx_info("[MLANG-INJECT] Done\n");

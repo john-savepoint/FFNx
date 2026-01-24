@@ -28,6 +28,7 @@
 #include <cmrc/cmrc.hpp>
 #include <vector>
 #include <array>
+#include <map>
 #include <string>
 #include <math.h>
 #include <bx/math.h>
@@ -260,6 +261,7 @@ private:
     {
         std::vector<bgfx::TextureHandle> texHandlers;
         bool bTexturesBound = false;
+        std::map<uint16_t, bool> sdfTextures;  // Track which textures are SDF
 
         bool bHasDrawBeenDone = false;
 
@@ -531,6 +533,7 @@ public:
     // Internal states
     void setInterpolationQualifier(RendererInterpolationQualifier qualifier = RendererInterpolationQualifier::SMOOTH);
     void setSDFMode(bool enabled);
+    void registerSDFTexture(uint16_t textureId, bool isSDF);
     void setPrimitiveType(RendererPrimitiveType type = RendererPrimitiveType::PT_TRIANGLES);
     void setCullMode(RendererCullMode mode = RendererCullMode::DISABLED);
     void doDepthTest(bool flag = false);

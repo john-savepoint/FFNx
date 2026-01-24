@@ -23,8 +23,13 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace ff7::battle
 {
+    // Original function pointers (stored before replacement)
+    extern uint32_t g_original_display_battle_action_text;
+
     // Camera
     void camera_hook_init();
     void update_battle_camera(short cameraScriptIndex);

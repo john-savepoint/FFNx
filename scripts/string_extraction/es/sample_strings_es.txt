@@ -1,0 +1,254 @@
+============================================================
+SAMPLE EXTRACTED STRINGS (First 50)
+============================================================
+
+String 1:
+  Offset: 0x3BA1B8
+  Bytes:  00 00 00 00 00 00 3E 40 45 6E 74 65 72 69 6E 67 20 46 52 41 4D 45 5F 49 4E 49 54 49 41 4C 49 5A 45 20 53 57 49 52 4C 0A 00 00 00 00 45 78 69 74 74 69 6E 67 20 46 52 41 4D 45 5F 49 4E 49 54 49 41 4C 49 5A 45 20 53 57 49 52 4C 0A 00 00 00 00 45 6E 74 65 72 69 6E 67 20 46 52 41 4D 45 5F 51 55 49 54 20 53 57 49 52 4C 0A 00 00 45 78 69 74 74 69 6E 67 20 46 52 41 4D 45 5F 51 55 49 54 20 53 57 49 52 4C 0A 00 00 53 77 69 72 6C 20 73 6F 75 6E 64 5F 65 66 66 65 63 74 31 0A 00 00 00 00 45 6E 64 20 6F 66 20 53 77 69 72 6C 20 73 6F 75 6E 64 5F 65 66 66 65 63 74 31 0A 00 00 00 00 00
+  Text:         /[40]e[6E][74][65][72][69][6E][67]!frame[5F]initialize!swirl[0A]    e[78][69][74][74][69][6E][67]!frame[5F]initialize!swirl[0A]    e[6E][74][65][72][69][6E][67]!frame[5F]quit!swirl[0A]  e[78][69][74][74][69][6E][67]!frame[5F]quit!swirl[0A]  s[77][69][72][6C]![73][6F][75][6E][64][5F][65][66][66][65][63][74]Q[0A]    e[6E][64]![6F][66]!s[77][69][72][6C]![73][6F][75][6E][64][5F][65][66][66][65][63][74]Q[0A]     
+
+String 2:
+  Offset: 0x3BC30C
+  Bytes:  00 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  Text:    [0A]                              
+
+String 3:
+  Offset: 0x3BC330
+  Bytes:  00 10 00 00 20 05 93 19 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 8C 7B 7B 00 08 00 00 00 60 7B 7B 00 09 00 00 00 34 7B 7B 00 0A 00 00 00 10 7B 7B 00 10 00 00 00 E4 7A 7B 00 11 00 00 00 B4 7A 7B 00 12 00 00 00 90 7A 7B 00 13 00 00 00 64 7A 7B 00 18 00 00 00 2C 7A 7B 00 19 00 00 00 04 7A 7B 00 1A 00 00 00 CC 79 7B 00 1B 00 00 00 94 79 7B 00 1C 00 00 00 6C 79 7B 00 78 00 00 00 5C 79 7B 00 79 00 00 00 4C 79 7B 00 7A 00 00 00 3C 79 7B 00 FC 00 00 00 38 79 7B 00
+  Text:    0  ![05][93]9                [02]   [8C][7B][7B] [08]   [60][7B][7B] [09]   T[7B][7B] [0A]   0[7B][7B] 0   [E4][7A][7B] 1   [B4][7A][7B] 2   [90][7A][7B] 3   [64][7A][7B] 8   L[7A][7B] 9   [04][7A][7B] :   [CC][79][7B] '   [94][79][7B] "   [6C][79][7B] [78]   [5C][79][7B] [79]   l[79][7B] [7A]   ][79][7B] [FC]   X[79][7B] 
+
+String 4:
+  Offset: 0x3BC600
+  Bytes:  35 00 00 00 0B 00 00 00 40 00 00 00
+  Text:   U   [0B]   [40]   
+
+String 5:
+  Offset: 0x3BC60D
+  Bytes:  03 00 00 80 00 00 00 81
+  Text:   [03]  [80]   [81]
+
+String 6:
+  Offset: 0x3BF2BC
+  Bytes:  00 00 00 00 50 53 54 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 50 44 54 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 C0 02 7C 00 00 03 7C 00
+  Text:       pst                                                             pdt                                                             [C0][02][7C]  [03][7C] 
+
+String 7:
+  Offset: 0x3BF34C
+  Bytes:  00 00 00 00 00 00 00 00 00 00 00 00
+  Text:               
+
+String 8:
+  Offset: 0x3BF35C
+  Bytes:  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 A0 02 40 00 00 00 00 00 00 00 00 00 C8 05 40 00 00 00 00 00 00 00 00 00 FA 08 40 00 00 00 00 00 00 00 00 40 9C 0C 40 00 00 00 00 00 00 00 00 50 C3 0F 40 00 00 00 00 00 00 00 00 24 F4 12 40 00 00 00 00 00 00 00 80 96 98 16 40 00 00 00 00 00 00 00 20 BC BE 19 40 00 00 00 00 00 04 BF C9 1B 8E 34 40 00 00 00 A1 ED CC CE 1B C2 D3 4E 40 20 F0 9E B5 70 2B A8 AD C5 9D 69 40 D0 5D FD 25 E5 1A 8E 4F 19 EB 83 40 71 96 D7 95 43 0E 05 8D 29 AF 9E 40 F9 BF A0 44 ED 81 12 8F 81 82 B9 40 BF 3C D5 A6 CF
+  Text:                                [A0][02][40]         [C8][05][40]         [FA][08][40]        [40][9C][0C][40]        p[C3],[40]        D[F4]2[40]       [80][96][98]6[40]       ![BC][BE]9[40]     [04][BF][C9]'[8E]T[40]   [A1][ED][CC][CE]'[C2][D3]n[40]![F0][9E][B5][70]K[A8][AD][C5][9D][69][40][D0][5D][FD]E[E5]:[8E]o9[EB][83][40][71][96][D7][95]c.[05][8D]I[AF][9E][40][F9][BF][A0]d[ED][81]2[8F][81][82][B9][40][BF]][D5][A6][CF]
+
+String 9:
+  Offset: 0x3BF41E
+  Bytes:  49 1F 78 C2 D3 40 6F C6 E0 8C E9 80 C9 47 BA 93 A8 41 BC 85 6B 55 27 39 8D F7 70 E0 7C 42 BC DD 8E DE F9 9D FB EB 7E AA 51 43 A1 E6 76 E3 CC F2 29 2F 84 81 26 44 28 10 17 AA F8 AE 10 E3 C5 C4 FA 44 EB A7 D4 F3 F7 EB E1 4A 7A 95 CF 45 65 CC C7 91 0E A6 AE A0 19 E3 A3 46 0D 65 17 0C 75 81 86 75 76 C9 48 4D 58 42 E4 A7 93 39 3B 35 B8 B2 ED 53 4D A7 E5 5D 3D C5 5D 3B 8B 9E 92 5A
+  Text:   i?[78][C2][D3][40][6F][C6][E0][8C][E9][80][C9]g[BA][93][A8]a[BC][85][6B]uGY[8D][F7][70][E0][7C]b[BC][DD][8E][DE][F9][9D][FB][EB][7E][AA]qc[A1][E6][76][E3][CC][F2]IO[84][81]FdH07[AA][F8][AE]0[E3][C5][C4][FA]d[EB][A7][D4][F3][F7][EB][E1]j[7A][95][CF]e[65][CC][C7][91].[A6][AE][A0]9[E3][A3]f[0D][65]7[0C][75][81][86][75][76][C9]hmxb[E4][A7][93]Y[U[B8][B2][ED]sm[A7][E5][5D]-[C5][5D][[8B][9E][92]z
+
+String 10:
+  Offset: 0x3BF599
+  Bytes:  91 81 3D 91 FA 3A 19 7A 63 25 43 31 C0 AC 3C 21 89 D1 38 82 47 97 B8 00 FD D7 3B DC 88 58 08 1B B1 E8 E3 86 A6 03 3B C6 84 45 42 07 B6 99 75 37 DB 2E 3A 33 71 1C D2 23 DB 32 EE 49 90 5A 39 A6 87 BE C0 57 DA A5 82 A6 A2 B5 32 E2 68 B2 11 A7 52 9F 44 59 B7 10 2C 25 49 E4 2D 36 34 4F 53 AE CE 6B 25 8F 59 04 A4 C0 DE C2 7D FB E8 C6 1E 9E E7 88 5A 57 91 3C BF 50 83 22 18 4E 4B 65 62 FD 83 8F AF 06 94 7D 11 E4 2D DE 9F CE D2 C8 04 DD A6 D8 0A 00 00 00 00
+  Text:   [91][81]-[91][FA]Z9[7A][63]EcQ[C0][AC]]A[89][D1]X[82]g[97][B8] [FD][D7][[DC][88]x[08]'[B1][E8][E3][86][A6][03][[C6][84]eb[07][B6][99][75]W[DB]NZS[71]"[D2]C[DB]R[EE]i[90]zY[A6][87][BE][C0]w[DA][A5][82][A6][A2][B5]R[E2][68][B2]1[A7]r[9F]dy[B7]0LEi[E4]MVTos[AE][CE][6B]E[8F]y[04][A4][C0][DE][C2][7D][FB][E8][C6])[9E][E7][88]zw[91]][BF]p[83]B8nk[65][62][FD][83][8F][AF][06][94][7D]1[E4]M[DE][9F][CE][D2][C8][04][DD][A6][D8][0A]    
+
+String 11:
+  Offset: 0x3BF634
+  Bytes:  1E 00 00 00 3B 00 00 00 5A 00 00 00 78 00 00 00 97 00 00 00 B5 00 00 00 D4 00 00 00 F3 00 00 00 11 01 00 00 30 01 00 00 4E 01 00 00 6D 01 00 00 00 00 00 00
+  Text:   )   [   z   [78]   [97]   [B5]   [D4]   [F3]   1[01]  P[01]  n[01]  [6D][01]      
+
+String 12:
+  Offset: 0x3BF66C
+  Bytes:  1E 00 00 00 3A 00 00 00 59 00 00 00 77 00 00 00 96 00 00 00 B4 00 00 00 D3 00 00 00 F2 00 00 00 10 01 00 00 2F 01 00 00 4D 01 00 00 6C 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 EF
+  Text:   )   Z   y   [77]   [96]   [B4]   [D3]   [F2]   0[01]  O[01]  m[01]  [6C][01]              [EF]
+
+String 13:
+  Offset: 0x3BF6AA
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 14:
+  Offset: 0x3BF6B4
+  Bytes:  00 00 00
+  Text:      
+
+String 15:
+  Offset: 0x3BF6B8
+  Bytes:  00 00 00 00 00 00 00 00 00 00 00 44 00 00 00 00 EF
+  Text:              d    [EF]
+
+String 16:
+  Offset: 0x3BF6CA
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 17:
+  Offset: 0x3BF6D4
+  Bytes:  00 00 00
+  Text:      
+
+String 18:
+  Offset: 0x3BF6D8
+  Bytes:  00 00 80 3F 00 00 00 00 00 00 00 44 00 00 E0 43 EF
+  Text:     [80][3F]       d  [E0]c[EF]
+
+String 19:
+  Offset: 0x3BF6EA
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 20:
+  Offset: 0x3BF6F4
+  Bytes:  00 00 00
+  Text:      
+
+String 21:
+  Offset: 0x3BF6F8
+  Bytes:  00 00 80 3F 00 00 60 3F 00 00 00 00 00 00 E0 43 EF
+  Text:     [80][3F]  [60][3F]      [E0]c[EF]
+
+String 22:
+  Offset: 0x3BF70A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 23:
+  Offset: 0x3BF714
+  Bytes:  00 00 00
+  Text:      
+
+String 24:
+  Offset: 0x3BF718
+  Bytes:  00 00 00 00 00 00 60 3F 00 00 00 44 00 00 00 00 EF
+  Text:         [60][3F]   d    [EF]
+
+String 25:
+  Offset: 0x3BF72A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 26:
+  Offset: 0x3BF734
+  Bytes:  00 00 00
+  Text:      
+
+String 27:
+  Offset: 0x3BF738
+  Bytes:  00 00 00 00 00 00 00 00 00 00 20 44 00 00 00 00 EF
+  Text:             !d    [EF]
+
+String 28:
+  Offset: 0x3BF74A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 29:
+  Offset: 0x3BF754
+  Bytes:  00 00 00
+  Text:      
+
+String 30:
+  Offset: 0x3BF758
+  Bytes:  00 00 80 3F 00 00 00 00 00 00 20 44 00 00 E0 43 EF
+  Text:     [80][3F]      !d  [E0]c[EF]
+
+String 31:
+  Offset: 0x3BF76A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 32:
+  Offset: 0x3BF774
+  Bytes:  00 00 00
+  Text:      
+
+String 33:
+  Offset: 0x3BF778
+  Bytes:  00 00 80 3F 00 00 60 3F 00 00 00 44 00 00 E0 43 EF
+  Text:     [80][3F]  [60][3F]   d  [E0]c[EF]
+
+String 34:
+  Offset: 0x3BF78A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 35:
+  Offset: 0x3BF794
+  Bytes:  00 00 00
+  Text:      
+
+String 36:
+  Offset: 0x3BF798
+  Bytes:  00 00 00 00 00 00 60 3F 00 00 00 00 00 00 00 00 EF
+  Text:         [60][3F]        [EF]
+
+String 37:
+  Offset: 0x3BF7AA
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 38:
+  Offset: 0x3BF7B4
+  Bytes:  00 00 00
+  Text:      
+
+String 39:
+  Offset: 0x3BF7B8
+  Bytes:  00 00 00 00 00 00 00 00 00 00 00 44 00 00 00 00 EF
+  Text:              d    [EF]
+
+String 40:
+  Offset: 0x3BF7CA
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 41:
+  Offset: 0x3BF7D4
+  Bytes:  00 00 00
+  Text:      
+
+String 42:
+  Offset: 0x3BF7D8
+  Bytes:  00 00 80 3F 00 00 00 00 00 00 00 44 00 00 F0 43 EF
+  Text:     [80][3F]       d  [F0]c[EF]
+
+String 43:
+  Offset: 0x3BF7EA
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 44:
+  Offset: 0x3BF7F4
+  Bytes:  00 00 00
+  Text:      
+
+String 45:
+  Offset: 0x3BF7F8
+  Bytes:  00 00 80 3F 00 00 60 3F 00 00 00 00 00 00 F0 43 EF
+  Text:     [80][3F]  [60][3F]      [F0]c[EF]
+
+String 46:
+  Offset: 0x3BF80A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 47:
+  Offset: 0x3BF814
+  Bytes:  00 00 00
+  Text:      
+
+String 48:
+  Offset: 0x3BF818
+  Bytes:  00 00 00 00 00 00 60 3F 00 00 00 44 00 00 00 00 EF
+  Text:         [60][3F]   d    [EF]
+
+String 49:
+  Offset: 0x3BF82A
+  Bytes:  7F 3F 00 00 80 3F
+  Text:   [7F][3F]  [80][3F]
+
+String 50:
+  Offset: 0x3BF834
+  Bytes:  00 00 00
+  Text:      
+

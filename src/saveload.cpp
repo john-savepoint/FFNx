@@ -183,6 +183,7 @@ uint32_t load_normal_texture(const void* data, uint32_t dataSize, const char* na
 					if (ret)
 					{
 						gl_set->is_sdf = 1;
+						newRenderer.registerSDFTexture(ret, true);
 						if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, sdf_filename);
 						break;
 					}

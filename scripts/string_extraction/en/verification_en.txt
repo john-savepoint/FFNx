@@ -1,0 +1,31 @@
+============================================================
+VERIFICATION REPORT
+============================================================
+
+FAIL: 'CONFIG' NOT FOUND
+FAIL: 'ITEM' NOT FOUND
+FAIL: 'MAGIC' NOT FOUND
+FAIL: 'EQUIP' NOT FOUND
+FAIL: 'STATUS' NOT FOUND
+FAIL: 'SAVE' NOT FOUND
+FAIL: 'QUIT' NOT FOUND
+FAIL: 'NEW GAME' NOT FOUND
+FAIL: 'CONTINUE' NOT FOUND
+
+============================================================
+SUMMARY: 0 passed, 9 failed
+============================================================
+
+
+============================================================
+SPOT CHECK (Raw Byte Verification)
+============================================================
+
+PASS: '[B7][E8]...' at 0x536618
+PASS: '  [7B] [7F]...' at 0x437396
+PASS: '[5B][03][FB]...' at 0x55B464
+PASS: '[D7]F  [B0][07]B A6  [B0][07]I...' at 0x4FA30C
+PASS: '  [C2] [88]...' at 0x3CB5E6
+
+Spot check: 5/5 passed
+============================================================
