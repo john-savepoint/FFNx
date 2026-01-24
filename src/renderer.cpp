@@ -2367,16 +2367,29 @@ void Renderer::doAlphaTest(bool flag)
 
 void Renderer::setInterpolationQualifier(RendererInterpolationQualifier qualifier)
 {
-    switch (qualifier)
+    // Store the base interpolation qualifier but don't override SDF mode
+    // SDF mode will use this to determine SDF_FONT_FLAT vs SDF_FONT_SMOOTH
+    baseInterpolationQualifier = qualifier;
+
+    // Only set the program if we're not in SDF mode
+    // If we ARE in SDF mode, the program is already set to SDF_FONT_FLAT or SDF_FONT_SMOOTH
+    if (backendProgram != RendererProgram::SDF_FONT_FLAT && backendProgram != RendererProgram::SDF_FONT_SMOOTH)
     {
-    case RendererInterpolationQualifier::FLAT:
-        backendProgram = RendererProgram::FLAT;
-        if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: FLAT\n", __func__);
-        break;
-    case RendererInterpolationQualifier::SMOOTH:
-        backendProgram = RendererProgram::SMOOTH;
-        if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SMOOTH\n", __func__);
-        break;
+        switch (qualifier)
+        {
+        case RendererInterpolationQualifier::FLAT:
+            backendProgram = RendererProgram::FLAT;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: FLAT\n", __func__);
+            break;
+        case RendererInterpolationQualifier::SMOOTH:
+            backendProgram = RendererProgram::SMOOTH;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SMOOTH\n", __func__);
+            break;
+        }
+    }
+    else
+    {
+        if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: Preserving SDF mode, not changing to %s\n", __func__, qualifier == FLAT ? "FLAT" : "SMOOTH");
     }
 }
 
@@ -2384,8 +2397,8 @@ void Renderer::setSDFMode(bool enabled)
 {
     if (enabled)
     {
-        // Override current program with SDF version
-        if (backendProgram == RendererProgram::FLAT)
+        // Override current program with SDF version based on interpolation qualifier
+        if (baseInterpolationQualifier == RendererInterpolationQualifier::FLAT)
         {
             backendProgram = RendererProgram::SDF_FONT_FLAT;
             if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SDF_FONT_FLAT\n", __func__);
@@ -2400,7 +2413,18 @@ void Renderer::setSDFMode(bool enabled)
         float sdfParams[4] = { sdf_pixel_range, 0.0f, 0.0f, 0.0f };
         setUniform(RendererUniform::SDF_PARAMS, sdfParams);
     }
-    // If disabled, program stays as already set (FLAT or SMOOTH)
+    else
+    {
+        // Restore non-SDF program based on base interpolation qualifier
+        if (baseInterpolationQualifier == RendererInterpolationQualifier::FLAT)
+        {
+            backendProgram = RendererProgram::FLAT;
+        }
+        else
+        {
+            backendProgram = RendererProgram::SMOOTH;
+        }
+    }
 }
 
 void Renderer::registerSDFTexture(uint16_t textureId, bool isSDF)

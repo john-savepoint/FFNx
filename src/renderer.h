@@ -360,6 +360,7 @@ private:
 
     bgfx::ViewId backendViewId = 1;
     RendererProgram backendProgram = RendererProgram::SMOOTH;
+    RendererInterpolationQualifier baseInterpolationQualifier = RendererInterpolationQualifier::SMOOTH;
 
     std::vector<bgfx::ProgramHandle> backendProgramHandles = std::vector<bgfx::ProgramHandle>(RendererProgram::COUNT, BGFX_INVALID_HANDLE);
 
