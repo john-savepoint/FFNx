@@ -162,30 +162,43 @@ uint32_t load_normal_texture(const void* data, uint32_t dataSize, const char* na
 
 			// Insert "_sdf" before the file extension
 			char* dot = strrchr(filename, '.');
-			if (dot && (dot - filename + 10) < sizeof(sdf_filename))
+			if (dot != nullptr)
 			{
-				// Copy everything before the dot
 				size_t base_len = dot - filename;
-				memcpy(sdf_filename, filename, base_len);
+				size_t ext_len = strlen(dot);
 
-				// Append "_sdf" and the extension
-				strcpy(sdf_filename + base_len, "_sdf");
-				strcpy(sdf_filename + base_len + 4, dot);
-
-				// Try loading the SDF variant
-				ret = load_texture_helper(sdf_filename, width, height, mod_ext[idx] == "png", true);
-
-				if (ret)
+				// Ensure we have enough space: base + "_sdf" + extension + null terminator
+				if (base_len + 4 + ext_len + 1 < sizeof(sdf_filename))
 				{
-					gl_set->is_sdf = 1;
-					if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, sdf_filename);
-					break;
+					// Build SDF filename: base_sdf.ext
+					memcpy(sdf_filename, filename, base_len);
+					memcpy(sdf_filename + base_len, "_sdf", 4);
+					memcpy(sdf_filename + base_len + 4, dot, ext_len + 1); // +1 for null terminator
+
+					if (trace_all) ffnx_trace("Trying SDF texture: %s\n", sdf_filename);
+
+					// Try loading the SDF variant
+					ret = load_texture_helper(sdf_filename, width, height, mod_ext[idx] == "png", true);
+
+					if (ret)
+					{
+						gl_set->is_sdf = 1;
+						if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, sdf_filename);
+						break;
+					}
+					else
+					{
+						if (trace_all) ffnx_trace("SDF texture not found, trying regular: %s\n", filename);
+					}
 				}
 			}
 		}
 
 		// If SDF variant not found, try regular texture
-		ret = load_texture_helper(filename, width, height, mod_ext[idx] == "png", true);
+		if (!ret)
+		{
+			ret = load_texture_helper(filename, width, height, mod_ext[idx] == "png", true);
+		}
 
 		if(ret)
 		{
