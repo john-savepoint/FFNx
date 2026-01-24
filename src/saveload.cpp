@@ -162,16 +162,15 @@ uint32_t load_normal_texture(const void* data, uint32_t dataSize, const char* na
 
 			// Insert "_sdf" before the file extension
 			char* dot = strrchr(filename, '.');
-			if (dot)
+			if (dot && (dot - filename + 10) < sizeof(sdf_filename))
 			{
 				// Copy everything before the dot
 				size_t base_len = dot - filename;
-				strncpy(sdf_filename, filename, base_len);
-				sdf_filename[base_len] = '\0';
+				memcpy(sdf_filename, filename, base_len);
 
 				// Append "_sdf" and the extension
-				strcat(sdf_filename, "_sdf");
-				strcat(sdf_filename, dot);
+				strcpy(sdf_filename + base_len, "_sdf");
+				strcpy(sdf_filename + base_len + 4, dot);
 
 				// Try loading the SDF variant
 				ret = load_texture_helper(sdf_filename, width, height, mod_ext[idx] == "png", true);
