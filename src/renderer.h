@@ -530,6 +530,7 @@ public:
 
     // Internal states
     void setInterpolationQualifier(RendererInterpolationQualifier qualifier = RendererInterpolationQualifier::SMOOTH);
+    void setSDFMode(bool enabled);
     void setPrimitiveType(RendererPrimitiveType type = RendererPrimitiveType::PT_TRIANGLES);
     void setCullMode(RendererCullMode mode = RendererCullMode::DISABLED);
     void doDepthTest(bool flag = false);

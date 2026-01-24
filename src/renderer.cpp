@@ -2365,6 +2365,29 @@ void Renderer::setInterpolationQualifier(RendererInterpolationQualifier qualifie
     }
 }
 
+void Renderer::setSDFMode(bool enabled)
+{
+    if (enabled)
+    {
+        // Override current program with SDF version
+        if (backendProgram == RendererProgram::FLAT)
+        {
+            backendProgram = RendererProgram::SDF_FONT_FLAT;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SDF_FONT_FLAT\n", __func__);
+        }
+        else
+        {
+            backendProgram = RendererProgram::SDF_FONT_SMOOTH;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SDF_FONT_SMOOTH\n", __func__);
+        }
+
+        // Set SDF parameters uniform
+        float sdfParams[4] = { sdf_pixel_range, 0.0f, 0.0f, 0.0f };
+        setUniform(RendererUniform::SDF_PARAMS, sdfParams);
+    }
+    // If disabled, program stays as already set (FLAT or SMOOTH)
+}
+
 void Renderer::setPrimitiveType(RendererPrimitiveType type)
 {
     if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: %u\n", __func__, type);

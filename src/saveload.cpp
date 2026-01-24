@@ -159,7 +159,16 @@ uint32_t load_normal_texture(const void* data, uint32_t dataSize, const char* na
 
 		if(ret)
 		{
-			if (trace_all) ffnx_trace("Created external texture: %u from %s\n", ret, filename);
+			// Detect SDF textures by filename pattern (contains "_sdf")
+			if (enable_sdf_fonts && strstr(filename, "_sdf"))
+			{
+				gl_set->is_sdf = 1;
+				if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, filename);
+			}
+			else
+			{
+				if (trace_all) ffnx_trace("Created external texture: %u from %s\n", ret, filename);
+			}
 			break;
 		}
 	}

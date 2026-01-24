@@ -109,6 +109,8 @@ struct gl_texture_set
 	std::map<std::string, uint32_t> animated_textures;
 	// ADDITIONAL TEXTURES
 	std::map<uint16_t, uint32_t> additional_textures;
+	// SDF TEXTURES
+	uint32_t is_sdf;
 };
 
 extern struct matrix d3dviewport_matrix;
