@@ -171,4 +171,17 @@ extern long external_ambient_volume;
 extern long ffmpeg_video_volume;
 extern bool ff7_advanced_blinking;
 
+// Character portrait system configuration
+extern bool enable_character_portraits;
+extern std::string portrait_texture_path;
+extern std::string portrait_override_config;
+extern float portrait_fade_width;
+extern float portrait_glow_intensity;
+extern bool portrait_auto_placement;
+extern float portrait_tail_length;
+extern float portrait_tail_width;
+extern int portrait_manual_x;
+extern int portrait_manual_y;
+extern int portrait_manual_fade_direction;
+
 void read_cfg();

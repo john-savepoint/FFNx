@@ -159,6 +159,19 @@ long external_ambient_volume;
 long ffmpeg_video_volume;
 bool ff7_advanced_blinking;
 
+// Character portrait system configuration
+bool enable_character_portraits = false;
+std::string portrait_texture_path = "mods/Textures/portraits";
+std::string portrait_override_config = "mods/config/portrait_overrides.json";
+float portrait_fade_width = 0.3f;
+float portrait_glow_intensity = 0.5f;
+bool portrait_auto_placement = true;
+float portrait_tail_length = 60.0f;
+float portrait_tail_width = 20.0f;
+int portrait_manual_x = 100;
+int portrait_manual_y = 100;
+int portrait_manual_fade_direction = 0;
+
 std::vector<std::string> get_string_or_array_of_strings(const toml::node_view<toml::node> &node)
 {
 	if (node.is_array()) {
@@ -331,6 +344,19 @@ void read_cfg()
 	external_ambient_volume = config["external_ambient_volume"].value_or(-1);
 	ffmpeg_video_volume = config["ffmpeg_video_volume"].value_or(-1);
 	ff7_advanced_blinking = config["ff7_advanced_blinking"].value_or(false);
+
+	// Character portrait system configuration
+	enable_character_portraits = config["character_portraits"]["enable"].value_or(false);
+	portrait_texture_path = config["character_portraits"]["texture_path"].value_or(portrait_texture_path);
+	portrait_override_config = config["character_portraits"]["override_config"].value_or(portrait_override_config);
+	portrait_fade_width = config["character_portraits"]["fade_width"].value_or(0.3);
+	portrait_glow_intensity = config["character_portraits"]["glow_intensity"].value_or(0.5);
+	portrait_auto_placement = config["character_portraits"]["auto_placement"].value_or(true);
+	portrait_tail_length = config["character_portraits"]["tail_length"].value_or(60.0);
+	portrait_tail_width = config["character_portraits"]["tail_width"].value_or(20.0);
+	portrait_manual_x = config["character_portraits"]["manual_x"].value_or(100);
+	portrait_manual_y = config["character_portraits"]["manual_y"].value_or(100);
+	portrait_manual_fade_direction = config["character_portraits"]["manual_fade_direction"].value_or(0);
 
 	// Windows x or y size can't be less then 0
 	if (window_size_x < 0) window_size_x = 0;
