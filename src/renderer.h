@@ -254,6 +254,7 @@ private:
         BLIT,
         SDF_FONT_FLAT,
         SDF_FONT_SMOOTH,
+        PORTRAIT,
         COUNT
     };
 
@@ -357,6 +358,8 @@ private:
     std::string fragmentSdfPathFlat = "shaders/FFNx.sdf";
     std::string vertexSdfPathSmooth = "shaders/FFNx.sdf";
     std::string fragmentSdfPathSmooth = "shaders/FFNx.sdf";
+    std::string vertexPortraitPath = "shaders/FFNx.portrait";
+    std::string fragmentPortraitPath = "shaders/FFNx.portrait";
 
     bgfx::ViewId backendViewId = 1;
     RendererProgram backendProgram = RendererProgram::SMOOTH;

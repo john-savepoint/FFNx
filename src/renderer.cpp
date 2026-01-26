@@ -287,6 +287,8 @@ void Renderer::updateRendererShaderPaths()
     fragmentSdfPathFlat += ".flat" + shaderSuffix + ".frag";
     vertexSdfPathSmooth += ".smooth" + shaderSuffix + ".vert";
     fragmentSdfPathSmooth += ".smooth" + shaderSuffix + ".frag";
+    vertexPortraitPath += shaderSuffix + ".vert";
+    fragmentPortraitPath += shaderSuffix + ".frag";
 }
 
 // Via https://dev.to/pperon/hello-bgfx-4dka
@@ -1022,6 +1024,12 @@ void Renderer::init()
     backendProgramHandles[RendererProgram::SDF_FONT_SMOOTH] = bgfx::createProgram(
         getShader(vertexSdfPathSmooth.c_str()),
         getShader(fragmentSdfPathSmooth.c_str()),
+        true
+    );
+
+    backendProgramHandles[RendererProgram::PORTRAIT] = bgfx::createProgram(
+        getShader(vertexPortraitPath.c_str()),
+        getShader(fragmentPortraitPath.c_str()),
         true
     );
 
