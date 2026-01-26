@@ -34,6 +34,11 @@ const int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text in d
 #include "defs.h"
 #include "battle/scene_text.h"
 
+#include "portrait_manager.h"
+#include "speaker_inference.h"
+#include "portrait_layout.h"
+#include "portrait_renderer.h"
+
 // Button placeholder labels for Japanese field text
 // Format: jafont_1 byte sequences for each button function
 // These are rendered when FD F0-FF codes are encountered in field dialogue
@@ -1038,6 +1043,31 @@ LABEL_34:
   return character_y;
 }
 
+// Render character portraits for active dialogue boxes
+void render_dialogue_box_portraits()
+{
+  // Only render if portrait system is enabled
+  if (!enable_character_portraits)
+  {
+    return;
+  }
+
+  // TODO: For Phase 1, this is a placeholder
+  // Full implementation requires:
+  // 1. Iterate through text_box_window_data_array_CFF5B8 (16 windows)
+  // 2. Check window_mode to find active boxes
+  // 3. Get box position (x, y) and size (width, height)
+  // 4. Call SpeakerInference::infer_speaker()
+  // 5. Call PortraitLayoutManager::calculate_layout()
+  // 6. Get portrait texture from PortraitManager::get_portrait()
+  // 7. Call PortraitRenderer::render_portrait_dialogue()
+
+  if (trace_all)
+  {
+    ffnx_trace("render_dialogue_box_portraits: Portrait rendering placeholder\n");
+  }
+}
+
 void field_draw_text_boxes_and_text_graphics_object_6ECA68_jp()
 {
   ff7_game_obj *game_object; // [esp+0h] [ebp-4h]
@@ -1106,6 +1136,9 @@ void field_draw_text_boxes_and_text_graphics_object_6ECA68_jp()
       ff7_externals.reset_field_54_graphics_object_66E62C(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8);
       *ff7_externals.text_box_do_draw_menu_win_c_blend_4_DC3CE4 = 0;
       *ff7_externals.field_do_draw_text_boxes_DC3CE8 = 0;
+
+      // Render character portraits after dialogue boxes
+      render_dialogue_box_portraits();
     }
     if ( *ff7_externals.text_box_do_draw_black_quad_graphics_object_DC3CF0 )
     {

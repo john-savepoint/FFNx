@@ -28,6 +28,9 @@
 #include "ff7_data.h"
 #include "ff7/widescreen.h"
 #include "ff7/time.h"
+#include "ff7/portrait_manager.h"
+#include "ff7/speaker_inference.h"
+#include "ff7/portrait_renderer.h"
 #include "ff7/battle/defs.h"
 #include "ff7/battle/scene_text.h"
 #include "ff7/field/defs.h"
@@ -557,6 +560,17 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	// snowboard .P model vertices limit fix + allow float vertex data type
 	//######################
 	replace_function(ff7_externals.snowboard_parse_model_vertices_732159, ff7_snowboard_parse_model_vertices);
+
+	//######################
+	// Character portrait system initialization
+	//######################
+	if (enable_character_portraits)
+	{
+		FFNx::PortraitManager::init();
+		FFNx::SpeakerInference::init();
+		FFNx::PortraitRenderer::init();
+		ffnx_info("Character portrait system initialized\n");
+	}
 }
 
 struct ff7_gfx_driver *ff7_load_driver(void* _game_object)
