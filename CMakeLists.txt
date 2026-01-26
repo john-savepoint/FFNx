@@ -241,6 +241,49 @@ foreach(FFNX_SHADER IN LISTS FFNX_SHADERS)
   endforeach()
 endforeach()
 
+# Portrait shader (uses custom varying definition)
+add_custom_command(
+  TARGET ${RELEASE_NAME}
+  POST_BUILD
+  COMMAND echo Building FFNx.portrait vert/frag shaders...
+  # OpenGL
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.frag -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.gl.frag --type f --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_OPENGL_FLAGS}
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.vert -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.gl.vert --type v --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_OPENGL_FLAGS}
+  # Vulkan
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.frag -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.vk.frag --type f --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_VULKAN_FLAGS}
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.vert -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.vk.vert --type v --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_VULKAN_FLAGS}
+  # Direct3D 11
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.frag -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.d3d11.frag --type f --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_DIRECT3D_FLAGS}
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.vert -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.d3d11.vert --type v --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_DIRECT3D_FLAGS}
+  # Direct3D 12
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.frag -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.d3d12.frag --type f --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_DIRECT3D_FLAGS}
+  COMMAND
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/bgfx/shadercRelease -i ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/include -f ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.vert -o
+    ${CMAKE_BINARY_DIR}/bin/shaders/FFNx.portrait.d3d12.vert --type v --varyingdef
+    ${CMAKE_SOURCE_DIR}/misc/FFNx.portrait.varying.def.sc ${BGFX_SHADERC_DIRECT3D_FLAGS}
+)
+
 # List .gitkeep files to remove them on INSTALL
 FILE(GLOB_RECURSE HEXT_GIT_KEEP_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/misc/ ${CMAKE_CURRENT_SOURCE_DIR}/misc/hext/ff8/**/.gitkeep)
 LIST(TRANSFORM HEXT_GIT_KEEP_FILES PREPEND ${CMAKE_BINARY_DIR}/bin/)
