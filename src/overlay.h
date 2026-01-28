@@ -41,6 +41,7 @@ private:
 	bool field_debug_open = false;
 	bool lighting_debug_open = false;
 	bool world_debug_open = false;
+	bool sdf_debug_open = false;
 
 	MemoryEditor mem_edit;
 

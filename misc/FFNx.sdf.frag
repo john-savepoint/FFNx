@@ -11,11 +11,11 @@
 //    FFNx is distributed in the hope that it will be useful,               //
 //    but WITHOUT ANY WARRANTY; without even the implied warranty of        //
 //    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-//    GNU General Public License for more details.                          //
+//    GNU General Public License for more details                          //
 /****************************************************************************/
 
-// SDF (Signed Distance Field) Font Fragment Shader
-// Provides resolution-independent, sharp text rendering
+// SDF (Signed Distance Field) Font Fragment Shader - Enhanced Edition v2.1
+// Fixed: Shadow behind text, better blur, per-character cycling, italic/skew
 
 $input v_color0, v_texcoord0
 
@@ -23,105 +23,228 @@ $input v_color0, v_texcoord0
 
 SAMPLER2D(tex_0, 0);  // SDF texture (RGB channels contain distance field)
 
+// Core parameters
 uniform vec4 SDFParams;
 #define pxRange SDFParams.x         // Distance field spread in pixels (default: 4.0)
 #define thickness SDFParams.y       // Glyph thickness adjustment (default: 0.5)
-#define shadowOffset SDFParams.z    // Shadow offset in pixels (default: 1.0)
-#define shadowOpacity SDFParams.w   // Shadow transparency (default: 0.5)
+#define shadowOffsetX SDFParams.z   // Shadow X offset in pixels
+#define shadowOffsetY SDFParams.w   // Shadow Y offset in pixels
 
-uniform vec4 SDFAtlasParams;
-#define atlasSize SDFAtlasParams.x     // Atlas texture size in pixels (default: 1024.0)
-#define gridSize SDFAtlasParams.y      // Number of cells per row/column (default: 16.0)
-#define cellSize SDFAtlasParams.z      // Cell size in pixels (default: 64.0)
-#define unused SDFAtlasParams.w        // Reserved for future use
+// Extended parameters 1
+uniform vec4 SDFParams2;
+#define shadowBlur SDFParams2.x     // Shadow blur/softness (0.0-10.0)
+#define shadowOpacity SDFParams2.y  // Shadow transparency (0.0-1.0)
+#define outlineWidth SDFParams2.z   // Outline thickness (0.0-5.0)
+#define outlineOpacity SDFParams2.w // Outline opacity (0.0-1.0)
+
+// Extended parameters 2
+uniform vec4 SDFParams3;
+#define innerOutlineWidth SDFParams3.x    // Inner outline thickness
+#define innerOutlineOpacity SDFParams3.y  // Inner outline opacity
+#define glowRadius SDFParams3.z           // Glow effect radius
+#define glowIntensity SDFParams3.w        // Glow brightness
+
+// Extended parameters 3 (Transform)
+uniform vec4 SDFParams4;
+#define italicSlant SDFParams4.x    // Italic slant amount (-0.5 to 0.5)
+#define skewX SDFParams4.y          // Horizontal skew
+#define skewY SDFParams4.z          // Vertical skew
+#define unused1 SDFParams4.w        // Reserved
+
+// Color parameters
+uniform vec4 SDFTextColor;          // Text fill color override (RGB + enable flag in A)
+uniform vec4 SDFShadowColor;        // Shadow color (RGB + unused)
+uniform vec4 SDFOutlineColor;       // Outline color (RGB + unused)
+uniform vec4 SDFInnerOutlineColor;  // Inner outline color (RGB + unused)
+uniform vec4 SDFGlowColor;          // Glow effect color (RGB + unused)
+
+// Animation parameters
+uniform vec4 SDFAnimParams;
+#define animSpeed SDFAnimParams.x         // Animation speed multiplier
+#define animTime SDFAnimParams.y          // Current time for animation
+#define colorCycleEnable SDFAnimParams.z  // Enable color cycling (0/1)
+#define pulseEnable SDFAnimParams.w       // Enable pulse effect (0/1)
+
+// Animation parameters 2
+uniform vec4 SDFAnimParams2;
+#define cycleOffset SDFAnimParams2.x      // Per-character color cycle offset
+#define unused2 SDFAnimParams2.y
+#define unused3 SDFAnimParams2.z
+#define unused4 SDFAnimParams2.w
 
 // Compute median of RGB channels
-// This preserves sharp corners better than single-channel SDF
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
-// Convert atlas UV to cell-local UV (0-1 within the current cell)
-vec2 getCellLocalUV(vec2 atlasUV) {
-    // Calculate which cell we're in (grid position)
-    vec2 cellIndex = floor(atlasUV * gridSize);
-
-    // Calculate cell's top-left corner in atlas UV space
-    vec2 cellTopLeft = cellIndex / gridSize;
-
-    // Convert to cell-local coordinates (0-1 within cell)
-    vec2 localUV = (atlasUV - cellTopLeft) * gridSize;
-
-    return localUV;
+// HSV to RGB conversion for color cycling
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-// Convert cell-local UV back to atlas UV, with clamping to cell boundaries
-vec2 cellLocalToAtlasUV(vec2 localUV, vec2 atlasUV) {
-    // Calculate which cell we're in (grid position)
-    vec2 cellIndex = floor(atlasUV * gridSize);
-
-    // Clamp local UV to [0, 1] range (stay within cell)
-    localUV = clamp(localUV, 0.0, 1.0);
-
-    // Calculate cell's top-left corner in atlas UV space
-    vec2 cellTopLeft = cellIndex / gridSize;
-
-    // Convert back to atlas UV
-    return cellTopLeft + (localUV / gridSize);
-}
-
-// Sample SDF with cell-local offset (prevents bleeding across cells)
-vec3 sampleSDFLocal(vec2 atlasUV, vec2 offsetPixels) {
-    // Convert to cell-local coordinates
-    vec2 localUV = getCellLocalUV(atlasUV);
-
-    // Apply offset in cell-local space (convert pixels to cell-local UV units)
-    // cellSize is the cell dimension in pixels (e.g., 64)
-    vec2 offsetUV = offsetPixels / cellSize;
-    vec2 offsetLocalUV = localUV + offsetUV;
-
-    // Convert back to atlas UV with clamping
-    vec2 sampledAtlasUV = cellLocalToAtlasUV(offsetLocalUV, atlasUV);
-
-    // Sample texture
-    return texture2D(tex_0, sampledAtlasUV).rgb;
+// Smooth step for better anti-aliasing
+float smoothDistance(float distance, float width) {
+    return smoothstep(-width, width, distance);
 }
 
 void main() {
-    // Sample the SDF texture (main glyph)
-    vec3 msd = texture2D(tex_0, v_texcoord0).rgb;
+    // Apply italic/skew transformation to UV coordinates
+    vec2 uv = v_texcoord0;
+    // Negative for correct italic direction, and scale down for subtlety
+    uv.x -= uv.y * italicSlant * 0.3;  // Italic slant (negative + scaled)
+    uv.x += uv.y * skewX * 0.3;        // Additional horizontal skew (scaled)
+    uv.y += uv.x * skewY * 0.3;        // Vertical skew (scaled)
+
+    // Sample the SDF texture with transformed UVs
+    vec3 msd = texture2D(tex_0, uv).rgb;
 
     // Compute signed distance
-    // msd contains distance values in [0, 1] range
-    // 0.5 = exactly on edge, >0.5 = inside glyph, <0.5 = outside
     float sd = median(msd.r, msd.g, msd.b);
-
-    // Convert distance to screen-space pixels
-    // pxRange defines how many pixels the distance field covers
     float screenPxDistance = pxRange * (sd - 0.5);
 
-    // Generate smooth anti-aliased alpha with thickness adjustment
-    // thickness controls how bold the text appears (0.5 = normal, higher = bolder)
-    float opacity = clamp(screenPxDistance + thickness, 0.0, 1.0);
+    // Main text opacity with thickness adjustment
+    // CORRECT: ADD thickness to expand, SUBTRACT to shrink
+    // thickness range: -1.0 (thin) to +1.0 (bold), 0.0 = normal
+    float textOpacity = smoothDistance(screenPxDistance + thickness, 0.5);
 
-    // Sample SDF offset for drop shadow using cell-local sampling
-    // This prevents shadow from bleeding into neighboring cells
-    vec2 shadowOffsetPixels = vec2(shadowOffset, shadowOffset);
-    vec3 shadowMsd = sampleSDFLocal(v_texcoord0, shadowOffsetPixels);
-    float shadowSd = median(shadowMsd.r, shadowMsd.g, shadowMsd.b);
-    float shadowDistance = pxRange * (shadowSd - 0.5);
-    float shadowValue = clamp(shadowDistance + 0.5, 0.0, 1.0);
+    // === GLOW EFFECT (FIXED) ===
+    float glowValue = 0.0;
+    if (glowRadius > 0.01 && glowIntensity > 0.01) {
+        // Distance from edge of glyph
+        float distFromEdge = abs(screenPxDistance);
+        // Smooth falloff based on glow radius
+        glowValue = (1.0 - smoothstep(0.0, glowRadius, distFromEdge)) * glowIntensity;
+        // Only show glow where text isn't fully opaque
+        glowValue *= (1.0 - textOpacity);
+    }
 
-    // Discard if neither text nor shadow is visible
-    if (opacity < 0.01 && shadowValue < 0.01) {
+    // === OUTLINE (OUTER) ===
+    float outlineValue = 0.0;
+    if (outlineWidth > 0.01 && outlineOpacity > 0.01) {
+        float outlineDist = screenPxDistance + thickness;  // FIXED: + not -
+        float outerEdge = outlineDist - outlineWidth;
+        outlineValue = smoothDistance(outlineDist, 0.5) - smoothDistance(outerEdge, 0.5);
+        outlineValue *= outlineOpacity;
+    }
+
+    // === INNER OUTLINE ===
+    float innerOutlineValue = 0.0;
+    if (innerOutlineWidth > 0.01 && innerOutlineOpacity > 0.01) {
+        float innerDist = screenPxDistance + thickness + innerOutlineWidth;  // FIXED: + not -
+        innerOutlineValue = smoothDistance(screenPxDistance + thickness, 0.5) - smoothDistance(innerDist, 0.5);  // FIXED
+        innerOutlineValue *= innerOutlineOpacity;
+    }
+
+    // === SHADOW (FIXED - MULTI-SAMPLE BLUR) ===
+    float shadowValue = 0.0;
+    if (shadowOpacity > 0.01 && (abs(shadowOffsetX) > 0.01 || abs(shadowOffsetY) > 0.01)) {
+        vec2 texelSize = vec2(1.0 / 1024.0, 1.0 / 1024.0);
+        vec2 shadowOffset = vec2(shadowOffsetX, shadowOffsetY) * texelSize;
+
+        if (shadowBlur < 0.1) {
+            // Hard shadow - single sample
+            vec3 shadowMsd = texture2D(tex_0, uv + shadowOffset).rgb;
+            float shadowSd = median(shadowMsd.r, shadowMsd.g, shadowMsd.b);
+            float shadowDistance = pxRange * (shadowSd - 0.5);
+            shadowValue = smoothDistance(shadowDistance + thickness, 0.5);  // FIXED: + not -
+        } else {
+            // Soft shadow - multi-sample box blur
+            float blurSteps = min(shadowBlur, 8.0);
+            int samples = int(blurSteps) + 1;
+            float sampleWeight = 1.0 / float(samples * samples);
+
+            for (int y = 0; y < 9; y++) {
+                if (y >= samples) break;
+                for (int x = 0; x < 9; x++) {
+                    if (x >= samples) break;
+
+                    vec2 offset = shadowOffset + vec2(
+                        (float(x) - blurSteps * 0.5) * texelSize.x,
+                        (float(y) - blurSteps * 0.5) * texelSize.y
+                    );
+
+                    vec3 sampleMsd = texture2D(tex_0, uv + offset).rgb;
+                    float sampleSd = median(sampleMsd.r, sampleMsd.g, sampleMsd.b);
+                    float sampleDist = pxRange * (sampleSd - 0.5);
+                    shadowValue += smoothDistance(sampleDist + thickness, 0.5) * sampleWeight;  // FIXED: + not -
+                }
+            }
+        }
+        shadowValue *= shadowOpacity;
+    }
+
+    // Discard if completely transparent
+    if (textOpacity < 0.01 && shadowValue < 0.01 && outlineValue < 0.01 &&
+        innerOutlineValue < 0.01 && glowValue < 0.01) {
         discard;
     }
 
-    // Composite: shadow (dark) behind text (colored)
-    vec3 shadowColor = vec3(0.0, 0.0, 0.0);  // Black shadow
-    vec3 finalColor = mix(shadowColor, v_color0.rgb, opacity);
-    // Use configured shadow opacity (SDFParams.w = shadowOpacity uniform)
-    float finalAlpha = max(opacity, shadowValue * shadowOpacity);
+    // === TEXT COLOR ===
+    vec3 textColor = v_color0.rgb;
 
-    gl_FragColor = vec4(finalColor, v_color0.a * finalAlpha);
+    // Override with custom color if enabled
+    if (SDFTextColor.a > 0.5) {
+        textColor = SDFTextColor.rgb;
+    }
+
+    // Apply color cycling animation with per-character offset
+    if (colorCycleEnable > 0.5) {
+        // Use UV.x as character position for cycling offset
+        float charOffset = uv.x * cycleOffset;
+        float hue = fract(animTime * animSpeed + charOffset);
+        textColor = hsv2rgb(vec3(hue, 1.0, 1.0));
+    }
+
+    // Apply pulse animation to opacity
+    float pulseMultiplier = 1.0;
+    if (pulseEnable > 0.5) {
+        pulseMultiplier = 0.7 + 0.3 * sin(animTime * animSpeed * 6.28318);
+    }
+
+    // === COMPOSITE LAYERS (FIXED - PROPER ALPHA BLENDING) ===
+    // Layer order: shadow (back) → glow → outline → inner outline → text (front)
+
+    vec4 result = vec4(0.0, 0.0, 0.0, 0.0);
+
+    // Shadow layer (completely behind everything)
+    if (shadowValue > 0.0) {
+        vec4 shadowLayer = vec4(SDFShadowColor.rgb, shadowValue);
+        result = shadowLayer;
+    }
+
+    // Glow layer
+    if (glowValue > 0.0) {
+        vec4 glowLayer = vec4(SDFGlowColor.rgb, glowValue);
+        // Alpha blend over shadow
+        result.rgb = mix(result.rgb, glowLayer.rgb, glowLayer.a);
+        result.a = max(result.a, glowLayer.a);
+    }
+
+    // Outline layer
+    if (outlineValue > 0.0) {
+        vec4 outlineLayer = vec4(SDFOutlineColor.rgb, outlineValue);
+        // Alpha blend over previous layers
+        result.rgb = mix(result.rgb, outlineLayer.rgb, outlineLayer.a);
+        result.a = max(result.a, outlineLayer.a);
+    }
+
+    // Inner outline layer
+    if (innerOutlineValue > 0.0) {
+        vec4 innerLayer = vec4(SDFInnerOutlineColor.rgb, innerOutlineValue);
+        result.rgb = mix(result.rgb, innerLayer.rgb, innerLayer.a);
+        result.a = max(result.a, innerLayer.a);
+    }
+
+    // Text layer (on top of everything)
+    if (textOpacity > 0.0) {
+        float finalTextAlpha = textOpacity * pulseMultiplier;
+        vec4 textLayer = vec4(textColor, finalTextAlpha);
+        // Alpha blend text on top
+        result.rgb = mix(result.rgb, textLayer.rgb, textLayer.a);
+        result.a = max(result.a, textLayer.a);
+    }
+
+    gl_FragColor = vec4(result.rgb, result.a * v_color0.a);
 }

@@ -47,14 +47,6 @@ uint32_t ff7_prepare_movie(char *name, uint32_t loop, struct dddevice **dddevice
 	char fmvName[512];
 	char newFmvName[512];
 
-	// Defense-in-depth: stop title video before using global FFmpeg pipeline.
-	// The title video uses its own VideoContext so there's no actual conflict,
-	// but stopping it frees GPU resources and ensures a clean visual transition.
-	if (FFNx::g_title_video.isActive()) {
-		ffnx_trace("prepare_movie: Stopping title video before FMV: %s\n", name);
-		FFNx::g_title_video.stop();
-	}
-
 	if(trace_all || trace_movies) ffnx_trace("prepare_movie %s\n", name);
 
 	ff7_externals.movie_object->loop = loop;
@@ -375,10 +367,16 @@ void movie_init()
 
 	ffmpeg_movie_init();
 
-	// Initialize character portrait animations (for FF7 Japanese edition)
-	if (ff7_japanese_edition) {
+	// Initialize character portrait animations (for FF7 Japanese version)
+	if (version == VERSION_FF7_102_JP) {
 		FFNx::init_char_portrait_anims();
-		// Title video is lazily initialized in japanese_text.cpp when the title screen
-		// is first rendered, so no eager loading here.
+
+		// Initialize title video if enabled
+		if (title_video_enable) {
+			const char* video_path = title_video_progress_based ?
+				FFNx::get_title_video_path(FFNx::TITLE_EARLY_GAME) :
+				title_video_path.c_str();
+			FFNx::g_title_video.load(video_path, title_video_loop);
+		}
 	}
 }

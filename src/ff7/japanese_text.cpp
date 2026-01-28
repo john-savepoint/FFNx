@@ -2125,30 +2125,15 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
 
   game_object = ff7_externals.engine_get_game_object_676578();
 
-  // Title video: independent VideoContext pipeline (does NOT use global FFmpeg state)
-  static bool title_video_debug_logged = false;
-  if (!title_video_debug_logged) {
-    ffnx_info("main_menu_draw_everything_6C0B91_jp CALLED: title_video_enable=%d, path=%s\n",
-              title_video_enable, title_video_path.c_str());
-    title_video_debug_logged = true;
-  }
-  if (title_video_enable) {
+  // Check if title video playback is enabled and active
+  if (title_video_enable && FFNx::g_title_video.isActive()) {
     static FFNx::TitleVideoVariant last_variant = (FFNx::TitleVideoVariant)-1;
 
-    // Lazy init: load video on first call if not already active
-    if (!FFNx::g_title_video.isActive()) {
-      const char* video_path = title_video_progress_based ?
-          FFNx::get_title_video_path(FFNx::detect_title_variant()) :
-          title_video_path.c_str();
-      FFNx::g_title_video.load(video_path, title_video_loop);
-      if (title_video_progress_based) {
-        last_variant = FFNx::detect_title_variant();
-      }
-    }
-
     // Progress-based variant switching
-    if (title_video_progress_based && FFNx::g_title_video.isActive()) {
+    if (title_video_progress_based) {
       FFNx::TitleVideoVariant current_variant = FFNx::detect_title_variant();
+
+      // Reload video if progress changed
       if (current_variant != last_variant) {
         FFNx::g_title_video.stop();
         const char* video_path = FFNx::get_title_video_path(current_variant);
@@ -2157,13 +2142,11 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
       }
     }
 
-    if (FFNx::g_title_video.isActive()) {
-      // Decode next frame (respects video FPS internally)
-      FFNx::g_title_video.update();
-      // Render fullscreen quad (saves/restores renderer state)
-      FFNx::g_title_video.render();
-      // DO NOT return early -- fall through to render UI overlays on top
-    }
+    // Update and render video
+    float dt = 1.0f / 60.0f;  // Assume 60 FPS
+    FFNx::g_title_video.update(dt);
+    FFNx::g_title_video.render(game_object);
+    return;  // Skip original static rendering
   }
 
   // Original static title screen rendering

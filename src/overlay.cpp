@@ -28,6 +28,7 @@
 #include "cfg.h"
 #include "world.h"
 #include "lighting_debug.h"
+#include "sdf_debug.h"
 
 #define IMGUI_VIEW_ID 255
 
@@ -310,6 +311,7 @@ void Overlay::drawMainWindow() {
             ImGui::MenuItem("Field Debug", NULL, &field_debug_open);
             if (!ff8) ImGui::MenuItem("Lighting Debug", NULL, &lighting_debug_open);
             if (ff8) ImGui::MenuItem("World Debug", NULL, &world_debug_open);
+            ImGui::MenuItem("SDF Font Debug", NULL, &sdf_debug_open);
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -335,6 +337,7 @@ void Overlay::draw()
         if (field_debug_open) field_debug(&field_debug_open);
         if (!ff8 && lighting_debug_open) lighting_debug(&lighting_debug_open);
         if (ff8 && world_debug_open) world_debug(&world_debug_open);
+        if (sdf_debug_open) sdf_debug(&sdf_debug_open);
     }
 
     ImGui::Render();
