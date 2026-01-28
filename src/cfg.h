@@ -110,8 +110,49 @@ extern bool enable_bilinear;
 extern bool enable_sdf_fonts;
 extern float sdf_pixel_range;
 extern float sdf_thickness;      // Adjusts glyph boldness (0.5 = normal, higher = bolder)
-extern float sdf_shadow_offset;  // Shadow offset in pixels (1.0 = 1 pixel)
+extern float sdf_shadow_offset;  // Shadow offset in pixels (1.0 = 1 pixel - DEPRECATED, use sdf_shadow_offset_x/y)
 extern float sdf_shadow_opacity; // Shadow transparency (0.0-1.0)
+
+// SDF Extended Parameters (for debug overlay)
+extern float sdf_shadow_offset_x;     // Shadow X offset in pixels
+extern float sdf_shadow_offset_y;     // Shadow Y offset in pixels
+extern float sdf_shadow_blur;          // Shadow blur/softness (0.0-10.0)
+extern float sdf_outline_width;        // Outline thickness (0.0-5.0)
+extern float sdf_outline_opacity;      // Outline opacity (0.0-1.0)
+extern float sdf_inner_outline_width;  // Inner outline thickness
+extern float sdf_inner_outline_opacity;// Inner outline opacity
+extern float sdf_glow_radius;          // Glow effect radius
+extern float sdf_glow_intensity;       // Glow brightness
+
+// SDF Colors
+extern bool sdf_text_color_enable;
+extern float sdf_text_color_r;
+extern float sdf_text_color_g;
+extern float sdf_text_color_b;
+extern float sdf_shadow_color_r;
+extern float sdf_shadow_color_g;
+extern float sdf_shadow_color_b;
+extern float sdf_outline_color_r;
+extern float sdf_outline_color_g;
+extern float sdf_outline_color_b;
+extern float sdf_inner_outline_color_r;
+extern float sdf_inner_outline_color_g;
+extern float sdf_inner_outline_color_b;
+extern float sdf_glow_color_r;
+extern float sdf_glow_color_g;
+extern float sdf_glow_color_b;
+
+// SDF Transforms
+extern float sdf_italic_slant;
+extern float sdf_skew_x;
+extern float sdf_skew_y;
+
+// SDF Animations
+extern float sdf_anim_speed;
+extern bool sdf_color_cycle_enable;
+extern bool sdf_pulse_enable;
+extern float sdf_cycle_offset;
+
 extern bool enable_lighting;
 extern bool prefer_lighting_cpu_calculations;
 extern long game_lighting;

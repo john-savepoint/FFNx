@@ -101,6 +101,47 @@ float sdf_pixel_range;
 float sdf_thickness;
 float sdf_shadow_offset;
 float sdf_shadow_opacity;
+
+// SDF Extended Parameters
+float sdf_shadow_offset_x;
+float sdf_shadow_offset_y;
+float sdf_shadow_blur;
+float sdf_outline_width;
+float sdf_outline_opacity;
+float sdf_inner_outline_width;
+float sdf_inner_outline_opacity;
+float sdf_glow_radius;
+float sdf_glow_intensity;
+
+// SDF Colors
+bool sdf_text_color_enable;
+float sdf_text_color_r;
+float sdf_text_color_g;
+float sdf_text_color_b;
+float sdf_shadow_color_r;
+float sdf_shadow_color_g;
+float sdf_shadow_color_b;
+float sdf_outline_color_r;
+float sdf_outline_color_g;
+float sdf_outline_color_b;
+float sdf_inner_outline_color_r;
+float sdf_inner_outline_color_g;
+float sdf_inner_outline_color_b;
+float sdf_glow_color_r;
+float sdf_glow_color_g;
+float sdf_glow_color_b;
+
+// SDF Transforms
+float sdf_italic_slant;
+float sdf_skew_x;
+float sdf_skew_y;
+
+// SDF Animations
+float sdf_anim_speed;
+bool sdf_color_cycle_enable;
+bool sdf_pulse_enable;
+float sdf_cycle_offset;
+
 bool enable_lighting;
 bool prefer_lighting_cpu_calculations;
 long game_lighting;
@@ -277,6 +318,47 @@ void read_cfg()
 	sdf_thickness = config["sdf_thickness"].value_or(0.5);
 	sdf_shadow_offset = config["sdf_shadow_offset"].value_or(1.0);
 	sdf_shadow_opacity = config["sdf_shadow_opacity"].value_or(0.5);
+
+	// SDF Extended Parameters
+	sdf_shadow_offset_x = config["sdf_shadow_offset_x"].value_or(1.0);
+	sdf_shadow_offset_y = config["sdf_shadow_offset_y"].value_or(1.0);
+	sdf_shadow_blur = config["sdf_shadow_blur"].value_or(0.0);
+	sdf_outline_width = config["sdf_outline_width"].value_or(0.0);
+	sdf_outline_opacity = config["sdf_outline_opacity"].value_or(1.0);
+	sdf_inner_outline_width = config["sdf_inner_outline_width"].value_or(0.0);
+	sdf_inner_outline_opacity = config["sdf_inner_outline_opacity"].value_or(1.0);
+	sdf_glow_radius = config["sdf_glow_radius"].value_or(0.0);
+	sdf_glow_intensity = config["sdf_glow_intensity"].value_or(0.0);
+
+	// SDF Colors
+	sdf_text_color_enable = config["sdf_text_color_enable"].value_or(false);
+	sdf_text_color_r = config["sdf_text_color_r"].value_or(1.0);
+	sdf_text_color_g = config["sdf_text_color_g"].value_or(1.0);
+	sdf_text_color_b = config["sdf_text_color_b"].value_or(1.0);
+	sdf_shadow_color_r = config["sdf_shadow_color_r"].value_or(0.0);
+	sdf_shadow_color_g = config["sdf_shadow_color_g"].value_or(0.0);
+	sdf_shadow_color_b = config["sdf_shadow_color_b"].value_or(0.0);
+	sdf_outline_color_r = config["sdf_outline_color_r"].value_or(1.0);
+	sdf_outline_color_g = config["sdf_outline_color_g"].value_or(1.0);
+	sdf_outline_color_b = config["sdf_outline_color_b"].value_or(1.0);
+	sdf_inner_outline_color_r = config["sdf_inner_outline_color_r"].value_or(1.0);
+	sdf_inner_outline_color_g = config["sdf_inner_outline_color_g"].value_or(1.0);
+	sdf_inner_outline_color_b = config["sdf_inner_outline_color_b"].value_or(1.0);
+	sdf_glow_color_r = config["sdf_glow_color_r"].value_or(1.0);
+	sdf_glow_color_g = config["sdf_glow_color_g"].value_or(0.5);
+	sdf_glow_color_b = config["sdf_glow_color_b"].value_or(0.0);
+
+	// SDF Transforms
+	sdf_italic_slant = config["sdf_italic_slant"].value_or(0.0);
+	sdf_skew_x = config["sdf_skew_x"].value_or(0.0);
+	sdf_skew_y = config["sdf_skew_y"].value_or(0.0);
+
+	// SDF Animations
+	sdf_anim_speed = config["sdf_anim_speed"].value_or(1.0);
+	sdf_color_cycle_enable = config["sdf_color_cycle_enable"].value_or(false);
+	sdf_pulse_enable = config["sdf_pulse_enable"].value_or(false);
+	sdf_cycle_offset = config["sdf_cycle_offset"].value_or(10.0);
+
 	enable_lighting = config["enable_lighting"].value_or(false);
 	prefer_lighting_cpu_calculations = config["prefer_lighting_cpu_calculations"].value_or(true);
 	game_lighting = config["game_lighting"].value_or(GAME_LIGHTING_PER_VERTEX);
