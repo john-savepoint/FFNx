@@ -12,80 +12,12 @@
 //    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
 //    GNU General Public License for more details.                          //
 /****************************************************************************/
-
-// Japanese text rendering offset adjustment
-// These constants push text Right (X) and Down (Y) to correct alignment
-// Adjust these values if text appears misaligned on screen
-const float JA_TEXT_OFFSET_X = -1.0f;  // Push Left (pixels) - Menu/Battle (was 4, reduced by 5)
-const float JA_TEXT_OFFSET_Y = 3.0f;   // Push Down (pixels) - Menu/Battle (was 10, reduced to 3)
-const float JA_FIELD_OFFSET_X = 12.0f; // Push Right (pixels) - Field dialogue
-const float JA_FIELD_OFFSET_Y = 2.0f;  // Push Down (pixels) - Field dialogue
-
-// Line height configuration for Japanese text
-// The original game uses 32, but Japanese text looks better with tighter spacing
-const int JA_VANILLA_LINE_HEIGHT = 32; // Original game line height (do not change)
-const int JA_CUSTOM_LINE_HEIGHT = 26;  // Custom line height for Japanese text
-const int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text in dialogue boxes
-
 #include "../globals.h"
-#include "../log.h"
 
 #include "../ff7.h"
-#include "defs.h"
-#include "battle/scene_text.h"
-
-// Button placeholder labels for Japanese field text
-// Format: jafont_1 byte sequences for each button function
-// These are rendered when FD F0-FF codes are encountered in field dialogue
-// Based on default PC keyboard mappings
-
-// Helper structure for button label data
-struct ButtonLabelData {
-    const unsigned char* bytes;  // jafont_1 byte sequence
-    int length;                  // number of bytes
-};
-
-// Button label byte sequences (jafont_1 indices)
-// Verified against ff7_complete_mapping_compact.csv
-
-// Ｃキー (C key) - for Cancel button: Ｃ=0xB6, キ=0x4C, ー=0xD0
-static const unsigned char BUTTON_LABEL_CANCEL[] = { 0xB6, 0x4C, 0xD0 };
-
-// Ｘキー (X key) - for Switch button: Ｘ=0xCB, キ=0x4C, ー=0xD0
-static const unsigned char BUTTON_LABEL_SWITCH[] = { 0xCB, 0x4C, 0xD0 };
-
-// Ｖキー (V key) - for Menu button: Ｖ=0xC9, キ=0x4C, ー=0xD0
-static const unsigned char BUTTON_LABEL_MENU[] = { 0xC9, 0x4C, 0xD0 };
-
-// ＰＧＵＰ - Page Up for L1: Ｐ=0xC3, Ｇ=0xBA, Ｕ=0xC8, Ｐ=0xC3
-static const unsigned char BUTTON_LABEL_PAGEUP[] = { 0xC3, 0xBA, 0xC8, 0xC3 };
-
-// ＰＧＤＮ - Page Down for R1: Ｐ=0xC3, Ｇ=0xBA, Ｄ=0xB7, Ｎ=0xC1
-static const unsigned char BUTTON_LABEL_PAGEDN[] = { 0xC3, 0xBA, 0xB7, 0xC1 };
-
-// Ｚキー (Z key) - for Assist/Target: Ｚ=0xCD, キ=0x4C, ー=0xD0
-static const unsigned char BUTTON_LABEL_ASSIST[] = { 0xCD, 0x4C, 0xD0 };
-
-// Button placeholder mapping (F0-FF)
-// F0=OK, F1=Cancel, F2=Menu, F3=Switch, F4=PageUp, F5=PageDn, etc.
-static const ButtonLabelData buttonLabels[16] = {
-    { nullptr, 0 },                              // F0 - OK/Confirm (Enter - TODO)
-    { BUTTON_LABEL_CANCEL, sizeof(BUTTON_LABEL_CANCEL) },   // F1 - Cancel
-    { BUTTON_LABEL_MENU, sizeof(BUTTON_LABEL_MENU) },       // F2 - Menu
-    { BUTTON_LABEL_SWITCH, sizeof(BUTTON_LABEL_SWITCH) },   // F3 - Switch
-    { BUTTON_LABEL_PAGEUP, sizeof(BUTTON_LABEL_PAGEUP) },   // F4 - Page Up (L1)
-    { BUTTON_LABEL_PAGEDN, sizeof(BUTTON_LABEL_PAGEDN) },   // F5 - Page Down (R1)
-    { BUTTON_LABEL_ASSIST, sizeof(BUTTON_LABEL_ASSIST) },   // F6 - Assist
-    { nullptr, 0 },                              // F7 - R2
-    { nullptr, 0 },                              // F8 - Select
-    { nullptr, 0 },                              // F9 - Start
-    { nullptr, 0 },                              // FA - Up
-    { nullptr, 0 },                              // FB - Down
-    { nullptr, 0 },                              // FC - Left
-    { nullptr, 0 },                              // FD - Right
-    { nullptr, 0 },                              // FE - Unknown
-    { nullptr, 0 },                              // FF - Unknown
-};
+#include "char_portrait_anim.h"
+#include "title_progress.h"
+#include "../video/title_video.h"
 
 void engine_load_menu_graphics_objects_6C1468_jp(int a1)
 {
@@ -393,10 +325,10 @@ int charWidthData[6][256] =
         27, 29, 26, 28, 29, 27, 27, 24, 21, 22, 30, 27, 25, 31, 25, 26,
         29, 29, 29, 28, 25, 27, 25, 30, 26, 29, 25, 27, 23, 24, 24, 25,
         24, 24, 21, 23, 24, 23, 21, 23, 22, 20, 24, 24, 24, 25, 11, 21,
-        29, 29, 8, 23, 24, 21, 24, 24, 20, 19, 25, 22, 14, 16, 22, 18, // pos 176=『(29), pos 177=』(29, was 14)
+        29, 14, 8, 23, 24, 21, 24, 24, 20, 19, 25, 22, 14, 16, 22, 18,
         27, 22, 26, 21, 27, 22, 21, 24, 22, 24, 31, 24, 23, 23, 14, 22,
-        28, 27, 27, 29, 30, 12, 25, 22, 22, 27, 27, 23, 23, 23, 27, 22, // pos 215=【(22), pos 216=】(22), pos 217=♥(27), pos 221=「(23), pos 222=」(27, was 12)
-        22, 23, 23, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, // pos 224=）(22, was 11), pos 225=−(23), pos 226=＝(23)
+        28, 27, 27, 29, 30, 12, 25, 22, 11, 0, 27, 23, 23, 23, 12, 22,
+        11, 23, 23, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
     },{ // Jap - 1
@@ -521,11 +453,6 @@ bgra_byte get_character_color(int n_shapes)
   return color;
 }
 
-// Static variables for button label injection
-static const unsigned char* buttonLabelBuffer = nullptr;
-static int buttonLabelIndex = 0;
-static int buttonLabelLength = 0;
-
 /////////////////////////////////////////////////////////////////////
 __int16 field_submit_draw_text_640x480_6E706D_jp(
         __int16 character_x,
@@ -566,11 +493,6 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
   int charWidth = 16;
   int leftPadding = 0;
 
-  // Reset button label injection state at start of text rendering
-  buttonLabelBuffer = nullptr;
-  buttonLabelIndex = 0;
-  buttonLabelLength = 0;
-
   character_count = 0;
   for ( i = 0;
         i < 1024
@@ -580,46 +502,10 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
      && *buffer_text != 0xE9;
         ++i )
   {
-    // Check if we're rendering from button label injection buffer
-    unsigned char effectiveChar = 0;
-    bool renderingFromButtonLabel = false;
-    if (buttonLabelBuffer != nullptr && buttonLabelIndex < buttonLabelLength)
-    {
-      // Render character from button label buffer
-      effectiveChar = buttonLabelBuffer[buttonLabelIndex];
-      ++buttonLabelIndex;
-      renderingFromButtonLabel = true;
-
-      // Set up for jafont_1 rendering
-      graphics_object = ff7_externals.menu_jafont_1_graphics_object;
-      kanjiDetected = false;
-      charWidth = charWidthData[0][effectiveChar] & 0x1F;
-      leftPadding = charWidthData[0][effectiveChar] >> 5;
-
-      // Calculate UV coordinates for the character
-      text_offset_spacing = 0;
-      graphics_object_v_in_byte = 0;
-      offset_u_in_byte = 32 * (effectiveChar % 16);
-      graphics_object_v_in_byte = 32 * (effectiveChar / 16);
-      current_character = effectiveChar;
-      character = effectiveChar;
-
-      // Skip to rendering section
-      goto RENDER_BUTTON_LABEL_CHAR;
-    }
-
-    // Check if button label is complete, clear the buffer
-    if (buttonLabelBuffer != nullptr && buttonLabelIndex >= buttonLabelLength)
-    {
-      buttonLabelBuffer = nullptr;
-      buttonLabelIndex = 0;
-      buttonLabelLength = 0;
-    }
-
     if ( *buffer_text == 231 )
     {
       character_x = (*ff7_externals.field_current_window_pos_x_DC3CB4) + 16;
-      character_y += JA_CUSTOM_LINE_HEIGHT; // Custom line height (cursor correction applied in background.cpp)
+      character_y += 32;
       ++buffer_text;
       ++ff7_externals.field_text_line_row_DC3CB8;
       ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
@@ -655,83 +541,14 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
         case 0xFDu:
           ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
           ++buffer_text;
-          // Check if this is a button placeholder (F0-FF) or jafont_5 character
-          if ( *buffer_text >= 0xF0u )
-          {
-            // Button placeholder codes (FD F0 through FD FF)
-            // F0=OK, F1=Cancel, F2=Menu, F3=Switch, F4=PageUp, F5=PageDn, etc.
-            unsigned char placeholderCode = *buffer_text - 0xF0;
-            ++buffer_text;
-            ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
-
-            // Get the button label for this placeholder
-            if (placeholderCode < 16 && buttonLabels[placeholderCode].bytes != nullptr)
-            {
-              // Set up button label buffer for injection
-              buttonLabelBuffer = buttonLabels[placeholderCode].bytes;
-              buttonLabelIndex = 0;
-              buttonLabelLength = buttonLabels[placeholderCode].length;
-              // NOTE: Do NOT reset color here - the button label should inherit
-              // the current text color (e.g., magenta for 【Cキー】)
-              // The color will be reset by the next FE Dx control code in the text
-              // Continue to next iteration - the button label will be rendered
-              // via the injection mechanism at the start of the loop
-              continue;
-            }
-            else
-            {
-              // No label defined for this button, skip
-              continue;
-            }
-          }
           graphics_object = ff7_externals.menu_jafont_5_graphics_object;
           kanjiDetected = true;
           charWidth = charWidthData[4][*buffer_text] & 0x1F;
           leftPadding = charWidthData[4][*buffer_text] >> 5;
           continue;
         case 0xFEu:
+          ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
           ++buffer_text;
-          ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
-          // Check if this is a control code (color/animation) or jafont_6 character
-          if ( *buffer_text < 0xD2u )
-          {
-            // It's a jafont_6 character (< 0xD2)
-            graphics_object = ff7_externals.menu_jafont_6_graphics_object;
-            kanjiDetected = true;
-            charWidth = charWidthData[5][*buffer_text] & 0x1F;
-            leftPadding = charWidthData[5][*buffer_text] >> 5;
-            continue;
-          }
-          // It's a control code - handle colors and animations
-          ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
-          if ( *buffer_text < 0xDAu )
-          {
-            // Color codes 0xD2-0xD9: set text color (0=gray, 1=blue, ... 7=white)
-            (*ff7_externals.word_91F028) = *buffer_text++ - 210;
-            continue;
-          }
-          if ( *buffer_text == 0xDAu )
-          {
-            // 0xDA: Toggle blinking effect
-            (*ff7_externals.word_DC3CC0) ^= 1u;
-            ++buffer_text;
-            continue;
-          }
-          if ( *buffer_text == 0xDBu )
-          {
-            // 0xDB: Turn ON rainbow/cycle effect (original JP behavior: does not toggle off mid-text)
-            (*ff7_externals.word_DC3CC4) = 1;
-            ++buffer_text;
-            continue;
-          }
-          if ( *buffer_text == 0xE9u )
-          {
-            // 0xE9: Toggle pause/wait effect
-            (*ff7_externals.dword_DC3CD4) ^= 1u;
-            ++buffer_text;
-            continue;
-          }
-          // Unknown control code - treat as jafont_6 character
           graphics_object = ff7_externals.menu_jafont_6_graphics_object;
           kanjiDetected = true;
           charWidth = charWidthData[5][*buffer_text] & 0x1F;
@@ -816,7 +633,6 @@ __int16 field_submit_draw_text_640x480_6E706D_jp(
             text_offset_spacing = 0;
             graphics_object_v_in_byte = 0;
 LABEL_39:
-RENDER_BUTTON_LABEL_CHAR:
             if ( (*ff7_externals.word_DC3CC0) || (*ff7_externals.word_DC3CC4) )
             {
               if ( (*ff7_externals.word_DC3CC4) )
@@ -841,17 +657,12 @@ RENDER_BUTTON_LABEL_CHAR:
             {
               character_n_shapes = (*ff7_externals.word_91F028);
             }
-            // Skip character lookup when rendering from button label buffer
-            // (character, offset_u_in_byte, graphics_object_v_in_byte already set)
-            if (!renderingFromButtonLabel)
-            {
-              current_character = *buffer_text;
-              character = current_character;
-              //if ( *buffer_text == 0xD2 || *buffer_text == 0xD3 )
-                //character = current_character - 78;
-              offset_u_in_byte = 32 * (character % 16);
-              graphics_object_v_in_byte += 32 * (character / 16);
-            }
+            current_character = *buffer_text;
+            character = current_character;
+            //if ( *buffer_text == 0xD2 || *buffer_text == 0xD3 )
+              //character = current_character - 78;
+            offset_u_in_byte = 32 * (character % 16);
+            graphics_object_v_in_byte += 32 * (character / 16);
             /*if ( character_x
                - (*ff7_externals.field_current_window_pos_x_DC3CB4)
                + 2
@@ -896,8 +707,8 @@ RENDER_BUTTON_LABEL_CHAR:
               character_v = (double)graphics_object_v_in_byte / 512.0;
               character_u_width = character_u_width_in_byte / 512.0;
               character_top_left = graphics_object->vertex_transform;
-              character_top_left->position.x = (float)character_x + JA_FIELD_OFFSET_X;
-              character_top_left->position.y = (float)character_y + JA_FIELD_OFFSET_Y;
+              character_top_left->position.x = (float)character_x;
+              character_top_left->position.y = (float)character_y;
               character_top_left->position.z = z_value;
               character_top_left->position.w = 1.0;
               character_top_left->color = color;
@@ -905,8 +716,8 @@ RENDER_BUTTON_LABEL_CHAR:
               character_top_left->u = character_u;
               character_top_left->v = character_v;
               character_bottom_left = graphics_object->vertex_transform + 1;
-              character_bottom_left->position.x = (float)character_x + JA_FIELD_OFFSET_X;
-              character_bottom_left->position.y = (double)character_y + 16 + JA_FIELD_OFFSET_Y;
+              character_bottom_left->position.x = (float)character_x;
+              character_bottom_left->position.y = (double)character_y + 16;
               character_bottom_left->position.z = z_value;
               character_bottom_left->position.w = 1.0;
               character_bottom_left->color = color;
@@ -914,8 +725,8 @@ RENDER_BUTTON_LABEL_CHAR:
               character_bottom_left->u = character_u;
               character_bottom_left->v = character_v + 32.0f / 512.0f;
               character_top_right = graphics_object->vertex_transform + 2;
-              character_top_right->position.x = (double)character_x + (double)character_x_width + JA_FIELD_OFFSET_X;
-              character_top_right->position.y = (float)character_y + JA_FIELD_OFFSET_Y;
+              character_top_right->position.x = (double)character_x + (double)character_x_width;
+              character_top_right->position.y = (float)character_y;
               character_top_right->position.z = z_value;
               character_top_right->position.w = 1.0;
               character_top_right->color = color;
@@ -923,8 +734,8 @@ RENDER_BUTTON_LABEL_CHAR:
               character_top_right->u = character_u + character_u_width;
               character_top_right->v = character_v;
               character_bottom_right = graphics_object->vertex_transform + 3;
-              character_bottom_right->position.x = (double)character_x + (double)character_x_width + JA_FIELD_OFFSET_X;
-              character_bottom_right->position.y = (double)character_y + 16 + JA_FIELD_OFFSET_Y;
+              character_bottom_right->position.x = (double)character_x + (double)character_x_width;
+              character_bottom_right->position.y = (double)character_y + 16;
               character_bottom_right->position.z = z_value;
               character_bottom_right->position.w = 1.0;
               character_bottom_right->color = color;
@@ -939,14 +750,9 @@ RENDER_BUTTON_LABEL_CHAR:
               character_x += 26;
             else
               character_x += std::ceil(0.5f * charWidth);//2 * (*(byte *)((*ff7_externals.g_text_spacing_DB958C) + text_offset_spacing + current_character) & 0x1F);
-            // Only update buffer position and character count when NOT rendering from button label
-            // When rendering from button label, buffer_text should remain pointing at the next field character
-            if (!renderingFromButtonLabel)
-            {
-              --(*ff7_externals.field_remaining_character_length_DC3CCC);
-              ++buffer_text;
-              ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
-            }
+            --(*ff7_externals.field_remaining_character_length_DC3CCC);
+            ++buffer_text;
+            ++(*ff7_externals.field_text_box_curr_n_characters_DC3CB0);
           }
           else
           {
@@ -1123,12 +929,6 @@ void field_draw_text_boxes_and_text_graphics_object_6ECA68_jp()
 
 int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_shapes, unsigned __int16 letter, float z_value)
 {
-  // NOTE: Old filter removed (2025-12-13)
-  // We now use the INJECTION approach - English grid is blanked in memory (0xFF)
-  // so vanilla renders nothing useful. No runtime filtering needed.
-  // The old filter was causing post-screen garbling because g_jp_naming_screen_active
-  // wasn't being properly reset, or was affecting other screens.
-
   graphics_vertex *bottom_right; // [esp+1Ch] [ebp-4Ch]
   graphics_vertex *top_right; // [esp+20h] [ebp-48h]
   graphics_vertex *bottom_left; // [esp+24h] [ebp-44h]
@@ -1198,24 +998,6 @@ int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_sha
       //offset_text_spacing = 1092;
       goto LABEL_9;
     default:
-      // OLD FIX: Config menu ASCII detection - DISABLED because ja_font now handles keyboard labels
-      // correctly via HEXT patches with +0x20 offset. See SESSION_HANDOFF_2025-12-08-08.
-      // The HEXT patches encode keyboard labels so jafont_1 renders them properly.
-      /*
-      // Check if we're in config menu (index 8) AND character is ASCII printable (0x20-0x7E)
-      // If so, use usfont for keyboard labels instead of jafont_1
-      if (ff7_externals.dword_DC12EC && *ff7_externals.dword_DC12EC == 8 &&
-          (byte)letter >= 0x20 && (byte)letter <= 0x7E) {
-        character_graphics_object = *ff7_externals.menu_font_a_graphics_object_DC100C;
-        charWidth = 12; // Standard width for usfont ASCII
-        leftPadding = 0;
-      } else {
-        character_graphics_object = ff7_externals.menu_jafont_1_graphics_object;
-        charWidth = charWidthData[0][*p_letter] & 0x1F;
-        leftPadding = charWidthData[0][*p_letter] >> 5;
-      }
-      */
-      // Use jafont_1 for all characters in default case
       character_graphics_object = ff7_externals.menu_jafont_1_graphics_object;
       charWidth = charWidthData[0][*p_letter] & 0x1F;
       leftPadding = charWidthData[0][*p_letter] >> 5;
@@ -1300,8 +1082,8 @@ LABEL_9:
         vertex_v = (double)image_v / 512.0f;
         vertex_u_width = image_u_width / 512.0f;
         top_left = character_graphics_object->vertex_transform;
-        top_left->position.x = (float)vertex_x + JA_TEXT_OFFSET_X;
-        top_left->position.y = (float)vertex_y + JA_TEXT_OFFSET_Y;
+        top_left->position.x = (float)vertex_x;
+        top_left->position.y = (float)vertex_y;
         top_left->position.z = z_value;
         top_left->position.w = 1.0;
         top_left->color = color;
@@ -1309,8 +1091,8 @@ LABEL_9:
         top_left->u = vertex_u;
         top_left->v = vertex_v;
         bottom_left = character_graphics_object->vertex_transform + 1;
-        bottom_left->position.x = (float)vertex_x + JA_TEXT_OFFSET_X;
-        bottom_left->position.y = (double)vertex_y + 16.0 + JA_TEXT_OFFSET_Y;
+        bottom_left->position.x = (float)vertex_x;
+        bottom_left->position.y = (double)vertex_y + 16.0;
         bottom_left->position.z = z_value;
         bottom_left->position.w = 1.0;
         bottom_left->color = color;
@@ -1318,8 +1100,8 @@ LABEL_9:
         bottom_left->u = vertex_u;
         bottom_left->v = vertex_v + 32.0f / 512.0f;
         top_right = character_graphics_object->vertex_transform + 2;
-        top_right->position.x = (double)vertex_x + (double)vertex_width + JA_TEXT_OFFSET_X;
-        top_right->position.y = (float)vertex_y + JA_TEXT_OFFSET_Y;
+        top_right->position.x = (double)vertex_x + (double)vertex_width;
+        top_right->position.y = (float)vertex_y;
         top_right->position.z = z_value;
         top_right->position.w = 1.0;
         top_right->color = color;
@@ -1327,8 +1109,8 @@ LABEL_9:
         top_right->u = vertex_u + vertex_u_width;
         top_right->v = vertex_v;
         bottom_right = character_graphics_object->vertex_transform + 3;
-        bottom_right->position.x = (double)vertex_x + (double)vertex_width + JA_TEXT_OFFSET_X;
-        bottom_right->position.y = (double)vertex_y + 16.0 + JA_TEXT_OFFSET_Y;
+        bottom_right->position.x = (double)vertex_x + (double)vertex_width;
+        bottom_right->position.y = (double)vertex_y + 16.0;
         bottom_right->position.z = z_value;
         bottom_right->position.w = 1.0;
         bottom_right->color = color;
@@ -1350,9 +1132,6 @@ void menu_draw_everything_6CC9D3_jp()
 {
   ff7_game_obj *game_object; // [esp+0h] [ebp-4h]
 
-  // Tick the force-overwrite counter for Japanese naming screen name persistence
-  ff7_naming_screen_force_overwrite_tick();
-
   if ( ff7_externals.g_get_do_render_menu_6CDBF2() )
   {
     game_object = ff7_externals.engine_get_game_object_676578();
@@ -1364,10 +1143,7 @@ void menu_draw_everything_6CC9D3_jp()
     {
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_blend_4_graphics_object_DC104C, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
-      // Skip drawing English font when Japanese naming screen is active
-      if (!g_jp_naming_screen_active) {
-        ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
-      }
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
     }
     else
     {
@@ -1376,15 +1152,9 @@ void menu_draw_everything_6CC9D3_jp()
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_b_blend_4_graphics_object_DC0FCC, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_d_blend_4_graphics_object_DC0FD4, game_object);
-      // Skip drawing English font when Japanese naming screen is active (prevents flickering overlay)
-      if (!g_jp_naming_screen_active) {
-        ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
-        ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
-      } else {
-        static int skip_log = 0;
-        if (skip_log++ % 60 == 0) ffnx_trace("menu_draw_everything: SKIPPING English font (flag=%d)\n", g_jp_naming_screen_active ? 1 : 0);
-      }
-
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
+      
       // jp
       ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_1_graphics_object, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_2_graphics_object, game_object);
@@ -1437,6 +1207,12 @@ void menu_draw_everything_6CC9D3_jp()
     }
     ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(9, 1, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_text_box_quad_graphics_object_DC1008, game_object);
+
+    // Update character portrait animations
+    // Calculate delta time (assuming 60 FPS for now)
+    float dt = 1.0f / 60.0f;
+    FFNx::update_char_portrait_anims(dt);
+
     ff7_externals.engine_gfx_setviewport_sub_66067A(
       *ff7_externals.menu_viewport_x_DC105C,
       *ff7_externals.menu_viewport_y_DC1060,
@@ -1674,20 +1450,6 @@ void draw_text_top_display_6D1CC0_jp(int a1, __int16 menu_box_idx, char a3, unsi
           break;
         case 7:
           ff7_externals.sub_6D70F1(a4);
-          // Multi-language injection: Replace enemy name with localized text for DE/FR/ES
-          ffnx_trace("Scene text: case 7 hit, a4=%d, needs_injection=%d\n", a4, ff7::battle::needs_text_injection());
-          if (ff7::battle::needs_text_injection())
-          {
-              uint16_t scene_id = ff7_externals.modules_global_object->battle_id;
-              const char* localized_name = ff7::battle::get_localized_enemy_name(scene_id, a4);
-              ffnx_trace("Scene text: scene_id=%d, localized_name=%p, first_byte=0x%02X\n",
-                  scene_id, localized_name, localized_name ? (unsigned char)localized_name[0] : 0);
-              if (localized_name && localized_name[0] != 0xFF)
-              {
-                  memcpy(ff7_externals.byte_DC3640, localized_name, 32);
-                  ffnx_trace("Scene text: Injected enemy name for scene %d, enemy %d\n", scene_id, a4);
-              }
-          }
           text_sub_41963C = (attack_name_fixed_buffer *)ff7_externals.byte_DC3640;
           break;
         case 13:
@@ -1908,8 +1670,8 @@ LABEL_49:
             v99 = (double)v129 / 512.0;
             v98 = v137 / 512.0;
             v94 = a2->vertex_transform;
-            v94->position.x = (double)offset_x + (double)v108 + JA_TEXT_OFFSET_X;
-            v94->position.y = (double)offset_y + (double)12 + JA_TEXT_OFFSET_Y;
+            v94->position.x = (double)offset_x + (double)v108;
+            v94->position.y = (double)offset_y + (double)12;
             v94->position.z = 0.0;
             v94->position.w = 1.0;
             v94->color = color;
@@ -1917,8 +1679,8 @@ LABEL_49:
             v94->u = v102;
             v94->v = v99;
             v93 = a2->vertex_transform + 1;
-            v93->position.x = (double)offset_x + (double)v108 + JA_TEXT_OFFSET_X;
-            v93->position.y = (double)offset_y + (double)12 + 16.0 + JA_TEXT_OFFSET_Y;
+            v93->position.x = (double)offset_x + (double)v108;
+            v93->position.y = (double)offset_y + (double)12 + 16.0;
             v93->position.z = 0.0;
             v93->position.w = 1.0;
             v93->color = color;
@@ -1926,8 +1688,8 @@ LABEL_49:
             v93->u = v102;
             v93->v = v99 + 32.0f / 512.0f;
             v92 = a2->vertex_transform + 2;
-            v92->position.x = (double)offset_x + (double)v108 + (double)v126 + JA_TEXT_OFFSET_X;
-            v92->position.y = (double)offset_y + (double)12 + JA_TEXT_OFFSET_Y;
+            v92->position.x = (double)offset_x + (double)v108 + (double)v126;
+            v92->position.y = (double)offset_y + (double)12;
             v92->position.z = 0.0;
             v92->position.w = 1.0;
             v92->color = color;
@@ -1935,8 +1697,8 @@ LABEL_49:
             v92->u = v102 + v98;
             v92->v = v99;
             v91 = a2->vertex_transform + 3;
-            v91->position.x = (double)offset_x + (double)v108 + (double)v126 + JA_TEXT_OFFSET_X;
-            v91->position.y = (double)offset_y + (double)12 + 16.0 + JA_TEXT_OFFSET_Y;
+            v91->position.x = (double)offset_x + (double)v108 + (double)v126;
+            v91->position.y = (double)offset_y + (double)12 + 16.0;
             v91->position.z = 0.0;
             v91->position.w = 1.0;
             v91->color = color;
@@ -2362,6 +2124,49 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
   ff7_game_obj *game_object; // [esp+0h] [ebp-4h]
 
   game_object = ff7_externals.engine_get_game_object_676578();
+
+  // Title video: independent VideoContext pipeline (does NOT use global FFmpeg state)
+  static bool title_video_debug_logged = false;
+  if (!title_video_debug_logged) {
+    ffnx_info("main_menu_draw_everything_6C0B91_jp CALLED: title_video_enable=%d, path=%s\n",
+              title_video_enable, title_video_path.c_str());
+    title_video_debug_logged = true;
+  }
+  if (title_video_enable) {
+    static FFNx::TitleVideoVariant last_variant = (FFNx::TitleVideoVariant)-1;
+
+    // Lazy init: load video on first call if not already active
+    if (!FFNx::g_title_video.isActive()) {
+      const char* video_path = title_video_progress_based ?
+          FFNx::get_title_video_path(FFNx::detect_title_variant()) :
+          title_video_path.c_str();
+      FFNx::g_title_video.load(video_path, title_video_loop);
+      if (title_video_progress_based) {
+        last_variant = FFNx::detect_title_variant();
+      }
+    }
+
+    // Progress-based variant switching
+    if (title_video_progress_based && FFNx::g_title_video.isActive()) {
+      FFNx::TitleVideoVariant current_variant = FFNx::detect_title_variant();
+      if (current_variant != last_variant) {
+        FFNx::g_title_video.stop();
+        const char* video_path = FFNx::get_title_video_path(current_variant);
+        FFNx::g_title_video.load(video_path, title_video_loop);
+        last_variant = current_variant;
+      }
+    }
+
+    if (FFNx::g_title_video.isActive()) {
+      // Decode next frame (respects video FPS internally)
+      FFNx::g_title_video.update();
+      // Render fullscreen quad (saves/restores renderer state)
+      FFNx::g_title_video.render();
+      // DO NOT return early -- fall through to render UI overlays on top
+    }
+  }
+
+  // Original static title screen rendering
   ff7_externals.engine_gfx_draw_predefined_polygon_set_field_84_sub_660E95(0, game_object);
   ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(2, 0, game_object);
   ff7_externals.engine_draw_graphics_object_66E641(*(ff7_graphics_object**)ff7_externals.menu_objects, game_object);
@@ -2370,10 +2175,7 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
   {
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_blend_4_graphics_object_DC104C, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
-    // Skip drawing English font when Japanese naming screen is active
-    if (!g_jp_naming_screen_active) {
-      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
-    }
+    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_blend_4_graphics_object_DC1048, game_object);
   }
   else
   {
@@ -2382,11 +2184,8 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_c_blend_4_diff_graphics_object_DC0FD8, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_b_blend_4_graphics_object_DC0FCC, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_d_blend_4_graphics_object_DC0FD4, game_object);
-    // Skip drawing English font when Japanese naming screen is active
-    if (!g_jp_naming_screen_active) {
-      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
-      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
-    }
+    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
+    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
 
     // jp
     ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_1_graphics_object, game_object);
@@ -2487,7 +2286,7 @@ void auto_resize_text_box(int16_t WINDOW_ID, int16_t* pOutW, int16_t* pOutH)
 		{
       maxW = std::max(maxW, W);
       W = 0;
-			H += JA_CUSTOM_LINE_HEIGHT; // Custom line height for box sizing
+			H += 32;
       continue;
 		}
 		if(character == 0xE9 || character == 0xE8)
@@ -2501,11 +2300,8 @@ void auto_resize_text_box(int16_t WINDOW_ID, int16_t* pOutW, int16_t* pOutH)
 
 		W += leftPadding + std::ceil(0.5f * charWidth);
 	}
-	// Add field offset to window size calculation to prevent text spilling
-	// Multiply by 2 because the result is divided by 2
-	// Height padding of 66 for proper text fit (40 was too tight, caused pagination)
-	*pOutW = (std::max(maxW, W) + 40 + (int)(JA_FIELD_OFFSET_X * 2)) / 2;
-	*pOutH = (std::max(maxH, H) + 66 + (int)(JA_FIELD_OFFSET_Y * 2)) / 2;
+	*pOutW = (std::max(maxW, W) + 40) / 2;
+	*pOutH = (std::max(maxH, H) + 50) / 2;
 }
 
 void field_text_box_window_opening_6317A9_jp(short WINDOW_ID)

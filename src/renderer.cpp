@@ -1082,6 +1082,7 @@ void Renderer::init()
     bgfxUniformHandles[RendererUniform::INV_VIEW_OFFSET_MATRIX] = createUniform("invViewOffsetMatrix", bgfx::UniformType::Mat4);
 
     bgfxUniformHandles[RendererUniform::SDF_PARAMS] = createUniform("SDFParams", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_ATLAS_PARAMS] = createUniform("SDFAtlasParams", bgfx::UniformType::Vec4);
 
     bgfxUniformHandles[RendererUniform::GAME_LIGHTING_FLAGS] = createUniform("gameLightingFlags", bgfx::UniformType::Vec4);
     bgfxUniformHandles[RendererUniform::GAME_GLOBAL_LIGHT_COLOR] = createUniform("gameGlobalLightColor", bgfx::UniformType::Vec4);
@@ -2413,6 +2414,11 @@ void Renderer::setSDFMode(bool enabled)
         // x: pixel_range, y: thickness, z: shadow_offset, w: shadow_opacity
         float sdfParams[4] = { sdf_pixel_range, sdf_thickness, sdf_shadow_offset, sdf_shadow_opacity };
         setUniform(RendererUniform::SDF_PARAMS, sdfParams);
+
+        // Set SDF atlas parameters uniform
+        // x: atlas_size (1024), y: grid_size (16), z: cell_size (64), w: unused
+        float sdfAtlasParams[4] = { 1024.0f, 16.0f, 64.0f, 0.0f };
+        setUniform(RendererUniform::SDF_ATLAS_PARAMS, sdfAtlasParams);
     }
     else
     {

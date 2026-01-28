@@ -158,6 +158,16 @@ long external_voice_volume;
 long external_ambient_volume;
 long ffmpeg_video_volume;
 bool ff7_advanced_blinking;
+bool char_portrait_anim_enable;
+bool title_video_enable;
+std::string title_video_path;
+bool title_video_loop;
+float title_video_audio;
+bool title_video_progress_based;
+std::string title_video_early_game;
+std::string title_video_world_map;
+std::string title_video_meteor;
+std::string title_video_final;
 
 std::vector<std::string> get_string_or_array_of_strings(const toml::node_view<toml::node> &node)
 {
@@ -331,6 +341,16 @@ void read_cfg()
 	external_ambient_volume = config["external_ambient_volume"].value_or(-1);
 	ffmpeg_video_volume = config["ffmpeg_video_volume"].value_or(-1);
 	ff7_advanced_blinking = config["ff7_advanced_blinking"].value_or(false);
+	char_portrait_anim_enable = config["char_portrait_anim_enable"].value_or(true);
+	title_video_enable = config["title_video_enable"].value_or(true);
+	title_video_path = config["title_video_path"].value_or("movies/title_cinematic.mp4");
+	title_video_loop = config["title_video_loop"].value_or(true);
+	title_video_audio = config["title_video_audio"].value_or(0.0f);
+	title_video_progress_based = config["title_video_progress_based"].value_or(true);
+	title_video_early_game = config["title_video_early_game"].value_or("movies/title_midgar.mp4");
+	title_video_world_map = config["title_video_world_map"].value_or("movies/title_world.mp4");
+	title_video_meteor = config["title_video_meteor"].value_or("movies/title_meteor.mp4");
+	title_video_final = config["title_video_final"].value_or("movies/title_final.mp4");
 
 	// Windows x or y size can't be less then 0
 	if (window_size_x < 0) window_size_x = 0;

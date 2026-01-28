@@ -29,14 +29,66 @@ uniform vec4 SDFParams;
 #define shadowOffset SDFParams.z    // Shadow offset in pixels (default: 1.0)
 #define shadowOpacity SDFParams.w   // Shadow transparency (default: 0.5)
 
+uniform vec4 SDFAtlasParams;
+#define atlasSize SDFAtlasParams.x     // Atlas texture size in pixels (default: 1024.0)
+#define gridSize SDFAtlasParams.y      // Number of cells per row/column (default: 16.0)
+#define cellSize SDFAtlasParams.z      // Cell size in pixels (default: 64.0)
+#define unused SDFAtlasParams.w        // Reserved for future use
+
 // Compute median of RGB channels
 // This preserves sharp corners better than single-channel SDF
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
+// Convert atlas UV to cell-local UV (0-1 within the current cell)
+vec2 getCellLocalUV(vec2 atlasUV) {
+    // Calculate which cell we're in (grid position)
+    vec2 cellIndex = floor(atlasUV * gridSize);
+
+    // Calculate cell's top-left corner in atlas UV space
+    vec2 cellTopLeft = cellIndex / gridSize;
+
+    // Convert to cell-local coordinates (0-1 within cell)
+    vec2 localUV = (atlasUV - cellTopLeft) * gridSize;
+
+    return localUV;
+}
+
+// Convert cell-local UV back to atlas UV, with clamping to cell boundaries
+vec2 cellLocalToAtlasUV(vec2 localUV, vec2 atlasUV) {
+    // Calculate which cell we're in (grid position)
+    vec2 cellIndex = floor(atlasUV * gridSize);
+
+    // Clamp local UV to [0, 1] range (stay within cell)
+    localUV = clamp(localUV, 0.0, 1.0);
+
+    // Calculate cell's top-left corner in atlas UV space
+    vec2 cellTopLeft = cellIndex / gridSize;
+
+    // Convert back to atlas UV
+    return cellTopLeft + (localUV / gridSize);
+}
+
+// Sample SDF with cell-local offset (prevents bleeding across cells)
+vec3 sampleSDFLocal(vec2 atlasUV, vec2 offsetPixels) {
+    // Convert to cell-local coordinates
+    vec2 localUV = getCellLocalUV(atlasUV);
+
+    // Apply offset in cell-local space (convert pixels to cell-local UV units)
+    // cellSize is the cell dimension in pixels (e.g., 64)
+    vec2 offsetUV = offsetPixels / cellSize;
+    vec2 offsetLocalUV = localUV + offsetUV;
+
+    // Convert back to atlas UV with clamping
+    vec2 sampledAtlasUV = cellLocalToAtlasUV(offsetLocalUV, atlasUV);
+
+    // Sample texture
+    return texture2D(tex_0, sampledAtlasUV).rgb;
+}
+
 void main() {
-    // Sample the SDF texture
+    // Sample the SDF texture (main glyph)
     vec3 msd = texture2D(tex_0, v_texcoord0).rgb;
 
     // Compute signed distance
@@ -52,9 +104,10 @@ void main() {
     // thickness controls how bold the text appears (0.5 = normal, higher = bolder)
     float opacity = clamp(screenPxDistance + thickness, 0.0, 1.0);
 
-    // Sample SDF offset for drop shadow (configurable offset)
-    vec2 shadowOffsetVec = vec2(shadowOffset, shadowOffset) / vec2(1024.0, 1024.0);
-    vec3 shadowMsd = texture2D(tex_0, v_texcoord0 + shadowOffsetVec).rgb;
+    // Sample SDF offset for drop shadow using cell-local sampling
+    // This prevents shadow from bleeding into neighboring cells
+    vec2 shadowOffsetPixels = vec2(shadowOffset, shadowOffset);
+    vec3 shadowMsd = sampleSDFLocal(v_texcoord0, shadowOffsetPixels);
     float shadowSd = median(shadowMsd.r, shadowMsd.g, shadowMsd.b);
     float shadowDistance = pxRange * (shadowSd - 0.5);
     float shadowValue = clamp(shadowDistance + 0.5, 0.0, 1.0);

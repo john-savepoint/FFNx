@@ -404,6 +404,15 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	}
 
 	// ###########################
+	// Title video hook (all editions)
+	// ###########################
+	// Install title screen hook for ALL editions (not just Japanese)
+	if (title_video_enable) {
+		ffnx_info("DEBUG: Installing universal title screen hook for video playback\n");
+		replace_function((uint32_t)ff7_externals.main_menu_draw_everything_maybe_6C0B91, main_menu_draw_everything_maybe_6C0B91_jp);
+	}
+
+	// ###########################
 	// Multi-language enemy name hook (Western editions)
 	// ###########################
 	// For DE/FR/ES: Hook enemy name retrieval to inject localized text

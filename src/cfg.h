@@ -170,5 +170,15 @@ extern long external_voice_volume;
 extern long external_ambient_volume;
 extern long ffmpeg_video_volume;
 extern bool ff7_advanced_blinking;
+extern bool char_portrait_anim_enable;
+extern bool title_video_enable;
+extern std::string title_video_path;
+extern bool title_video_loop;
+extern float title_video_audio;
+extern bool title_video_progress_based;
+extern std::string title_video_early_game;
+extern std::string title_video_world_map;
+extern std::string title_video_meteor;
+extern std::string title_video_final;
 
 void read_cfg();

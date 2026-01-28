@@ -25,6 +25,9 @@
 #include "patch.h"
 #include "ff7/widescreen.h"
 #include "video/movies.h"
+#include "video/title_video.h"
+#include "ff7/char_portrait_anim.h"
+#include "ff7/title_progress.h"
 #include "redirect.h"
 #include "achievement.h"
 
@@ -43,6 +46,14 @@ uint32_t ff7_prepare_movie(char *name, uint32_t loop, struct dddevice **dddevice
 	char filename[128];
 	char fmvName[512];
 	char newFmvName[512];
+
+	// Defense-in-depth: stop title video before using global FFmpeg pipeline.
+	// The title video uses its own VideoContext so there's no actual conflict,
+	// but stopping it frees GPU resources and ensures a clean visual transition.
+	if (FFNx::g_title_video.isActive()) {
+		ffnx_trace("prepare_movie: Stopping title video before FMV: %s\n", name);
+		FFNx::g_title_video.stop();
+	}
 
 	if(trace_all || trace_movies) ffnx_trace("prepare_movie %s\n", name);
 
@@ -363,4 +374,11 @@ void movie_init()
 	}
 
 	ffmpeg_movie_init();
+
+	// Initialize character portrait animations (for FF7 Japanese edition)
+	if (ff7_japanese_edition) {
+		FFNx::init_char_portrait_anims();
+		// Title video is lazily initialized in japanese_text.cpp when the title screen
+		// is first rendered, so no eager loading here.
+	}
 }

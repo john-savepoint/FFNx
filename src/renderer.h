@@ -136,6 +136,7 @@ enum RendererUniform
     VIEW_OFFSET_MATRIX,
     INV_VIEW_OFFSET_MATRIX,
     SDF_PARAMS,
+    SDF_ATLAS_PARAMS,
 
     COUNT,
 };
