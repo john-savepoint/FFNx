@@ -1135,10 +1135,63 @@ void menu_draw_everything_6CC9D3_jp()
   if ( ff7_externals.g_get_do_render_menu_6CDBF2() )
   {
     game_object = ff7_externals.engine_get_game_object_676578();
-    ff7_externals.engine_gfx_draw_predefined_polygon_set_field_84_sub_660E95(0, game_object);
-    ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(2, 0, game_object);
-    ff7_externals.engine_gfx_draw_graphics_object_polygon_set_field_80_sub_660E6A(*ff7_externals.menu_unknown3_graphics_object_DC0FFC, game_object);
-    ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_window_bg_graphics_object_DC0FF0, game_object);
+
+    // Stop title video if we left the title screen (mode != 20)
+    if (*ff7_externals.engine_game_mode_word_CBF9DC != 20 && FFNx::g_title_video.isActive()) {
+      FFNx::g_title_video.stop();
+    }
+
+    // Title video: render fullscreen video behind UI when on title screen (mode 20)
+    if (*ff7_externals.engine_game_mode_word_CBF9DC == 20 && title_video_enable) {
+      static FFNx::TitleVideoVariant last_variant = (FFNx::TitleVideoVariant)-1;
+
+      // Lazy init: load video on first title screen frame
+      if (!FFNx::g_title_video.isActive()) {
+        const char* video_path = title_video_progress_based ?
+            FFNx::get_title_video_path(FFNx::detect_title_variant()) :
+            title_video_path.c_str();
+        FFNx::g_title_video.load(video_path, title_video_loop);
+        if (title_video_progress_based) {
+          last_variant = FFNx::detect_title_variant();
+        }
+      }
+
+      // Progress-based variant switching
+      if (title_video_progress_based && FFNx::g_title_video.isActive()) {
+        FFNx::TitleVideoVariant current_variant = FFNx::detect_title_variant();
+        if (current_variant != last_variant) {
+          FFNx::g_title_video.stop();
+          const char* video_path = FFNx::get_title_video_path(current_variant);
+          FFNx::g_title_video.load(video_path, title_video_loop);
+          last_variant = current_variant;
+        }
+      }
+
+      if (FFNx::g_title_video.isActive()) {
+        FFNx::g_title_video.update();
+        FFNx::g_title_video.render();
+        // Fall through to render UI overlays on top of video
+      }
+    }
+
+    // When title video is active, skip opaque background layers that would cover it.
+    // The video IS the background, so we only need UI overlays (windows, text, cursor) on top.
+    bool title_video_is_bg = (*ff7_externals.engine_game_mode_word_CBF9DC == 20
+                              && title_video_enable
+                              && FFNx::g_title_video.isActive());
+
+    // When title video is active, skip ONLY the opaque background layers.
+    // Fonts and window chrome MUST still render on top of the video.
+    if (!title_video_is_bg) {
+      ff7_externals.engine_gfx_draw_predefined_polygon_set_field_84_sub_660E95(0, game_object);
+      ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(2, 0, game_object);
+      ff7_externals.engine_gfx_draw_graphics_object_polygon_set_field_80_sub_660E6A(*ff7_externals.menu_unknown3_graphics_object_DC0FFC, game_object);
+      ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_window_bg_graphics_object_DC0FF0, game_object);
+    } else {
+      // Still need renderstate 2=0 even when skipping backgrounds
+      ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(2, 0, game_object);
+    }
+    // Fonts and window chrome always render (they go ON TOP of the video)
     if ( *ff7_externals.menu_is_small_viewport_320_240_DC130C == 1 )
     {
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_blend_4_graphics_object_DC104C, game_object);
@@ -1154,7 +1207,7 @@ void menu_draw_everything_6CC9D3_jp()
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_win_d_blend_4_graphics_object_DC0FD4, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_a_graphics_object_DC100C, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_font_b_graphics_object_DC1010, game_object);
-      
+
       // jp
       ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_1_graphics_object, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(ff7_externals.menu_jafont_2_graphics_object, game_object);
@@ -1181,12 +1234,14 @@ void menu_draw_everything_6CC9D3_jp()
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_avatar_2_graphics_object_DC1018, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_avatar_3_graphics_object_DC101C, game_object);
     }
-    if ( *ff7_externals.engine_game_mode_word_CBF9DC == 20 )
+    if ( *ff7_externals.engine_game_mode_word_CBF9DC == 20 && !title_video_is_bg)
     {
       ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(2, 1, game_object);
       ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_buster_tex_graphics_object_DC1044, game_object);
       ff7_externals.reset_field_54_graphics_object_66E62C(*ff7_externals.menu_buster_tex_graphics_object_DC1044);
     }
+    // predefined_polygon_set slot 1 contains UI overlays (cursor, pointer)
+    // Must always render even when video is the background
     ff7_externals.engine_gfx_draw_predefined_polygon_set_field_84_sub_660E95(1, game_object);
     ff7_externals.engine_gfx_set_single_renderstate_sub_660C3A(2, 0, game_object);
     ff7_externals.engine_draw_graphics_object_66E641(*ff7_externals.menu_unknown4_graphics_object_DC1000, game_object);
@@ -2125,29 +2180,9 @@ void main_menu_draw_everything_maybe_6C0B91_jp()
 
   game_object = ff7_externals.engine_get_game_object_676578();
 
-  // Check if title video playback is enabled and active
-  if (title_video_enable && FFNx::g_title_video.isActive()) {
-    static FFNx::TitleVideoVariant last_variant = (FFNx::TitleVideoVariant)-1;
-
-    // Progress-based variant switching
-    if (title_video_progress_based) {
-      FFNx::TitleVideoVariant current_variant = FFNx::detect_title_variant();
-
-      // Reload video if progress changed
-      if (current_variant != last_variant) {
-        FFNx::g_title_video.stop();
-        const char* video_path = FFNx::get_title_video_path(current_variant);
-        FFNx::g_title_video.load(video_path, title_video_loop);
-        last_variant = current_variant;
-      }
-    }
-
-    // Update and render video
-    float dt = 1.0f / 60.0f;  // Assume 60 FPS
-    FFNx::g_title_video.update(dt);
-    FFNx::g_title_video.render(game_object);
-    return;  // Skip original static rendering
-  }
+  // NOTE: Title video rendering has moved to menu_draw_everything_6CC9D3_jp()
+  // which is the actual per-frame draw function called during the title screen.
+  // This function (6C0B91) is part of the GFX init chain, not the render loop.
 
   // Original static title screen rendering
   ff7_externals.engine_gfx_draw_predefined_polygon_set_field_84_sub_660E95(0, game_object);

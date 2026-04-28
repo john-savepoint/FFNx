@@ -28,6 +28,7 @@
 #include "../ff7/widescreen.h"
 
 extern Renderer newRenderer;
+extern Widescreen widescreen;
 extern uint32_t game_width;
 extern uint32_t game_height;
 extern int max_texture_size;
@@ -246,13 +247,14 @@ bool VideoContext::decodeNextFrame()
                 }
 
                 // Upload BGRA data to a new GPU texture
+                // sRGB = true: Video frames are gamma-encoded, let GPU linearize on sampling
                 frame_textures[buf_write] = newRenderer.createTexture(
                     bgra_buffer,
                     video_width,
                     video_height,
                     0,
                     RendererTextureType::BGRA,
-                    false,  // not sRGB (video content, linear-ish)
+                    true,   // sRGB - GPU handles gamma conversion automatically
                     true    // copy data
                 );
 
@@ -285,39 +287,98 @@ void VideoContext::render()
 
     struct game_obj* game_object = common_externals.get_game_object();
 
-    // --- Save renderer state that we will modify ---
+    // Save ALL renderer state so UI elements drawn after us are unaffected
     struct driver_state saved_state;
     gl_save_state(&saved_state);
 
     if (render_target.mode == RenderTarget::FULLSCREEN) {
-        // Replicate gl_draw_movie_quad_common() logic for fullscreen
-        float ratio = (float)game_width / (float)video_width;
-        float movieHeight = ratio * video_height;
-        float movieWidth = ratio * video_width;
-        float movieOffsetY = (game_height - movieHeight) / 2.0f;
+        // Title video must fill the ENTIRE visible area including widescreen sides.
+        //
+        // The backendProjMatrix (used for TLVertex) maps:
+        //   X: [wide_viewport_x .. wide_viewport_x + wide_viewport_width] -> full screen
+        //   Y: [0 .. game_height] -> full screen
+        //
+        // For 16:9 at 480p: X [-107 .. 747], Y [0 .. 480]
+        // For 4:3: X [0 .. 640], Y [0 .. 480]
+        //
+        // To fill the screen, our quad must span these exact ranges.
+        // The video's aspect ratio is preserved by cropping (fill mode).
 
-        float x0 = 0.0f;
-        float y0 = movieOffsetY;
-        float x_end = movieWidth;
-        float y_end = movieHeight + movieOffsetY;
+        float screen_left, screen_right;
+        if (widescreen_enabled) {
+            screen_left  = (float)wide_viewport_x;                              // -107
+            screen_right = (float)(wide_viewport_x + wide_viewport_width);      // 747
+        } else {
+            screen_left  = 0.0f;
+            screen_right = (float)game_width;                                   // 640
+        }
+        float screen_top    = 0.0f;
+        float screen_bottom = (float)game_height;                               // 480
+
+        float screen_w = screen_right - screen_left;
+        float screen_h = screen_bottom - screen_top;
+
+        // Scale video to FILL the screen (crop if aspect ratios differ)
+        float screen_aspect = screen_w / screen_h;
+        float video_aspect  = (float)video_width / (float)video_height;
+
+        float quad_x0, quad_y0, quad_x1, quad_y1;
+        float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+
+        if (video_aspect >= screen_aspect) {
+            // Video is wider than screen: fit height, crop sides via UV
+            quad_x0 = screen_left;
+            quad_x1 = screen_right;
+            quad_y0 = screen_top;
+            quad_y1 = screen_bottom;
+            // Crop the video's horizontal edges via UV coordinates
+            float visible_fraction = screen_aspect / video_aspect;
+            float umargin = (1.0f - visible_fraction) * 0.5f;
+            u0 = umargin;
+            u1 = 1.0f - umargin;
+        } else {
+            // Video is taller than screen: fit width, crop top/bottom via UV
+            quad_x0 = screen_left;
+            quad_x1 = screen_right;
+            quad_y0 = screen_top;
+            quad_y1 = screen_bottom;
+            float visible_fraction = video_aspect / screen_aspect;
+            float vmargin = (1.0f - visible_fraction) * 0.5f;
+            v0 = vmargin;
+            v1 = 1.0f - vmargin;
+        }
+
+        static bool logged_once = false;
+        if (!logged_once) {
+            ffnx_info("VideoContext::render: screen=[%.0f,%.0f]->[%.0f,%.0f] video=%ux%u uv=[%.3f,%.3f]->[%.3f,%.3f] ws=%d\n",
+                      quad_x0, quad_y0, quad_x1, quad_y1,
+                      video_width, video_height,
+                      u0, v0, u1, v1, widescreen_enabled);
+            logged_once = true;
+        }
 
         struct nvertex vertices[] = {
-            {x0,    y0,    1.0f, 1.0f, 0xffffffff, 0, 0.0f, 0.0f},
-            {x0,    y_end, 1.0f, 1.0f, 0xffffffff, 0, 0.0f, 1.0f},
-            {x_end, y0,    1.0f, 1.0f, 0xffffffff, 0, 1.0f, 0.0f},
-            {x_end, y_end, 1.0f, 1.0f, 0xffffffff, 0, 1.0f, 1.0f},
+            {quad_x0, quad_y0, 1.0f, 1.0f, 0xffffffff, 0, u0, v0},  // top-left
+            {quad_x0, quad_y1, 1.0f, 1.0f, 0xffffffff, 0, u0, v1},  // bottom-left
+            {quad_x1, quad_y0, 1.0f, 1.0f, 0xffffffff, 0, u1, v0},  // top-right
+            {quad_x1, quad_y1, 1.0f, 1.0f, 0xffffffff, 0, u1, v1},  // bottom-right
         };
         WORD indices[] = { 0, 1, 2, 1, 3, 2 };
 
-        // Bind the BGRA texture to slot 0 (TEX_Y)
+        // Bind BGRA texture
         newRenderer.useTexture(static_cast<uint16_t>(frame_textures[buf_read]),
                                RendererTextureSlot::TEX_Y);
 
-        // Set movie render states
+        // Set renderer state to match how gl_draw_movie_quad_common works:
+        // isMovie(true) tells shader to force alpha=1.0 on the texture color
+        // isYUV(false) tells shader to use tex_0 directly as RGB, not do YUV conversion
+        // isTLVertex(true) tells vertex shader to use backendProjMatrix
         newRenderer.isMovie(true);
-        newRenderer.isTLVertex(true);
         newRenderer.isYUV(false);
+        newRenderer.isTLVertex(true);
         newRenderer.doTextureFiltering(true);
+
+        current_state.texture_filter = true;
 
         internal_set_renderstate(V_NOCULL, 1, game_object);
         internal_set_renderstate(V_DEPTHTEST, 0, game_object);
@@ -336,10 +397,10 @@ void VideoContext::render()
         float y_end = y0 + render_target.h;
 
         struct nvertex vertices[] = {
-            {x0,    y0,    0.01f, 1.0f, 0xffffffff, 0, 0.0f, 0.0f},
-            {x0,    y_end, 0.01f, 1.0f, 0xffffffff, 0, 0.0f, 1.0f},
-            {x_end, y0,    0.01f, 1.0f, 0xffffffff, 0, 1.0f, 0.0f},
-            {x_end, y_end, 0.01f, 1.0f, 0xffffffff, 0, 1.0f, 1.0f},
+            {x0,    y0,    1.0f, 1.0f, 0xffffffff, 0, 0.0f, 0.0f},
+            {x0,    y_end, 1.0f, 1.0f, 0xffffffff, 0, 0.0f, 1.0f},
+            {x_end, y0,    1.0f, 1.0f, 0xffffffff, 0, 1.0f, 0.0f},
+            {x_end, y_end, 1.0f, 1.0f, 0xffffffff, 0, 1.0f, 1.0f},
         };
         WORD indices[] = { 0, 1, 2, 1, 3, 2 };
 
@@ -351,6 +412,7 @@ void VideoContext::render()
         newRenderer.isYUV(false);
         newRenderer.doTextureFiltering(true);
 
+        current_state.texture_filter = true;
         internal_set_renderstate(V_NOCULL, 1, game_object);
         internal_set_renderstate(V_DEPTHTEST, 0, game_object);
         internal_set_renderstate(V_DEPTHMASK, 0, game_object);
@@ -361,14 +423,14 @@ void VideoContext::render()
         newRenderer.draw();
     }
 
-    // --- Restore renderer state so UI drawn after us is clean ---
-    // Critical: without this, cursor/text/menus rendered after us inherit
-    // movie render states (isMovie, isTLVertex, disabled depth, etc.)
+    // Reset movie flags BEFORE restoring state, so the renderer doesn't
+    // carry these into subsequent draw calls
     newRenderer.isMovie(false);
     newRenderer.isTLVertex(false);
     newRenderer.isYUV(false);
     newRenderer.doTextureFiltering(false);
 
+    // Restore ALL renderer state (blend mode, depth, texture, viewport, etc.)
     gl_load_state(&saved_state);
 }
 
