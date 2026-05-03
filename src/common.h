@@ -34,6 +34,7 @@
 #define VERSION_FF7_102_FR          2
 #define VERSION_FF7_102_DE          3
 #define VERSION_FF7_102_SP          4
+#define VERSION_FF7_102_JP         19
 #define VERSION_FF8_12_US           5
 #define VERSION_FF8_12_US_NV        6
 #define VERSION_FF8_12_FR           7

@@ -45,6 +45,7 @@ void ff7_set_battle_menu_state_data_at_full_atb(short param_1, short param_2, sh
 
 // misc
 void ff7_core_game_loop();
+void main_menu_draw_everything_maybe_6C0B91_universal();  // For title video - all editions
 uint32_t get_equipment_stats(uint32_t party_index, uint32_t type);
 void ff7_wm_activateapp(bool hasFocus);
 int ff7_get_gamepad();
