@@ -28,6 +28,7 @@
 #include <cmrc/cmrc.hpp>
 #include <vector>
 #include <array>
+#include <map>
 #include <string>
 #include <math.h>
 #include <bx/math.h>
@@ -136,6 +137,18 @@ enum RendererUniform
     LIGHT_INV_VIEW_PROJ_TEX_MATRIX,
     VIEW_OFFSET_MATRIX,
     INV_VIEW_OFFSET_MATRIX,
+    SDF_PARAMS,
+    SDF_PARAMS2,
+    SDF_PARAMS3,
+    SDF_PARAMS4,
+    SDF_TEXT_COLOR,
+    SDF_SHADOW_COLOR,
+    SDF_OUTLINE_COLOR,
+    SDF_INNER_OUTLINE_COLOR,
+    SDF_GLOW_COLOR,
+    SDF_ANIM_PARAMS,
+    SDF_ANIM_PARAMS2,
+    SDF_ATLAS_PARAMS,
 
     BONE_MATRICES,
     SKINNING_FLAGS,
@@ -257,6 +270,8 @@ private:
         POSTPROCESSING,
         OVERLAY,
         BLIT,
+        SDF_FONT_FLAT,
+        SDF_FONT_SMOOTH,
         COUNT
     };
 
@@ -264,6 +279,7 @@ private:
     {
         std::vector<bgfx::TextureHandle> texHandlers;
         bool bTexturesBound = false;
+        std::map<uint16_t, bool> sdfTextures;  // Track which textures are SDF
 
         bool bHasDrawBeenDone = false;
 
@@ -359,9 +375,14 @@ private:
     std::string fragmentFieldShadowPath = "shaders/FFNx.field.shadow";
     std::string vertexBlitPath = "shaders/FFNx.blit";
     std::string fragmentBlitPath = "shaders/FFNx.blit";
+    std::string vertexSdfPathFlat = "shaders/FFNx.sdf";
+    std::string fragmentSdfPathFlat = "shaders/FFNx.sdf";
+    std::string vertexSdfPathSmooth = "shaders/FFNx.sdf";
+    std::string fragmentSdfPathSmooth = "shaders/FFNx.sdf";
 
     bgfx::ViewId backendViewId = 1;
     RendererProgram backendProgram = RendererProgram::SMOOTH;
+    RendererInterpolationQualifier baseInterpolationQualifier = RendererInterpolationQualifier::SMOOTH;
 
     std::vector<bgfx::ProgramHandle> backendProgramHandles = std::vector<bgfx::ProgramHandle>(RendererProgram::COUNT, BGFX_INVALID_HANDLE);
 
@@ -534,6 +555,8 @@ public:
 
     // Internal states
     void setInterpolationQualifier(RendererInterpolationQualifier qualifier = RendererInterpolationQualifier::SMOOTH);
+    void setSDFMode(bool enabled);
+    void registerSDFTexture(uint16_t textureId, bool isSDF);
     void setPrimitiveType(RendererPrimitiveType type = RendererPrimitiveType::PT_TRIANGLES);
     void setCullMode(RendererCullMode mode = RendererCullMode::DISABLED);
     void doDepthTest(bool flag = false);

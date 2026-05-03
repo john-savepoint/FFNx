@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Marcin 'Maki' Gomulak                              //
 //                                                                          //
@@ -29,6 +29,7 @@
 #include "ff7/widescreen.h"
 #include "ff7/time.h"
 #include "ff7/battle/defs.h"
+#include "ff7/battle/scene_text.h"
 #include "ff7/field/defs.h"
 #include "ff7/world/defs.h"
 
@@ -83,18 +84,8 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	// Allow mouse cursor to be shown
 	replace_function(ff7_externals.dinput_createdevice_mouse, noop);
 
-	if (enable_external_mesh)
-	{
-		// TODO: Comment this if Chocobo's not visible in race
-		replace_function(ff7_externals.draw_3d_model, draw_3d_model_smooth_skinning);
-		//replace_function(ff7_externals.battle_sub_684CC6, battle_sub_684CC6);
-		replace_function((uint32_t)ff7_externals.free_polygon_data, free_polygon_data);
-	}
-	else
-	{
-		// TODO: Comment this if Chocobo's not visible in race
-		//replace_function(ff7_externals.draw_3d_model, draw_3d_model);
-	}
+	// TODO: Comment this if Chocobo's not visible in race
+	// replace_function(ff7_externals.draw_3d_model, draw_3d_model);
 
 	// sub_6B27A9 hack, replace d3d code
 	memset_code((uint32_t)ff7_externals.sub_6B27A9 + 25, 0x90, 6);
@@ -150,6 +141,16 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	patch_code_uint((uint32_t)ff7_externals.kernel_load_kernel2 + 0x1D, 20 * 65536);
 	replace_call_function(ff7_externals.kernel_init + 0x1FD, ff7_load_kernel2_wrapper);
 	replace_call_function(ff7_externals.battle_scene_bin_sub_5D1050 + 0x85, ff7::battle::load_scene_bin_chunk);
+
+	// Multi-language support: Patch scene.bin block divisor for DE/FR/ES
+	// These languages have 11 scenes in block 0 instead of 12
+	// This allows using native language scene.bin files directly
+	ff7::battle::patch_scene_block_divisor();
+
+	// Multi-language scene text injection (for DE/FR/ES using English scene.bin)
+	// Loads localized enemy/attack names from .dat files
+	// inject_scene_text() is called from load_scene_bin_chunk in battle.cpp
+	ff7::battle::init_scene_text();
 
 	replace_function(ff7_externals.read_field_file, ff7_read_field_file);
 
@@ -214,9 +215,9 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	replace_call_function(ff7_externals.battle_set_do_render_menu_call, ff7::battle::battle_menu_enter);
 
 	// #####################
-	// widescreen / uncrop
+	// widescreen
 	// #####################
-	if(widescreen_enabled || enable_uncrop)
+	if(widescreen_enabled)
 		ff7_widescreen_hook_init();
 
 	if (enable_time_cycle)
@@ -249,7 +250,6 @@ void ff7_init_hooks(struct game_obj *_game_object)
 		replace_function(ff7_externals.fps_limiter_chocobo, ff7_limit_fps);
 		replace_function(ff7_externals.fps_limiter_submarine, ff7_limit_fps);
 		replace_function(ff7_externals.fps_limiter_credits, ff7_limit_fps);
-		replace_function(ff7_externals.fps_limiter_menu, ff7_limit_fps);
 
 		if (ff7_fps_limiter >= FPS_LIMITER_30FPS)
 		{
@@ -266,10 +266,9 @@ void ff7_init_hooks(struct game_obj *_game_object)
 
 				// Swirl mode 60FPS fix
 				patch_multiply_code<byte>(ff7_externals.swirl_main_loop + 0x184, common_frame_multiplier); // wait frames before swirling
-				patch_multiply_code<byte>(ff7_externals.swirl_main_loop + 0x79, common_frame_multiplier); // swirling sound delay
-				patch_code_byte(ff7_externals.swirl_loop_sub_4026D4 + 0x3E, 50); // replace 48 with a bigger number without multiplying in order to have fading effect correctly
-				patch_code_byte(ff7_externals.swirl_loop_sub_4026D4 + 0x111, 0x7F); // cannot multiply otherwise char overflow
-				patch_divide_code<byte>(ff7_externals.swirl_loop_sub_4026D4 + 0x61, common_frame_multiplier); // decrease fading speed
+				patch_multiply_code<byte>(ff7_externals.swirl_loop_sub_4026D4 + 0x3E, common_frame_multiplier);
+				byte swirl_cmp_fix[7] = {0x82, 0xB9, 0x50, 0x11, 0x00, 0x00, 0x9C};
+				memcpy_code(ff7_externals.swirl_loop_sub_4026D4 + 0x10B, swirl_cmp_fix, sizeof(swirl_cmp_fix));
 				patch_divide_code<double>(get_absolute_value(ff7_externals.swirl_loop_sub_4026D4, 0x1AB), common_frame_multiplier);
 				patch_divide_code<double>(get_absolute_value(ff7_externals.swirl_loop_sub_4026D4, 0x1B1), common_frame_multiplier);
 				patch_divide_code<double>(get_absolute_value(ff7_externals.swirl_loop_sub_4026D4, 0x1E4), common_frame_multiplier);
@@ -374,6 +373,52 @@ void ff7_init_hooks(struct game_obj *_game_object)
         memset_code(ff7_externals.handle_actor_ready + 0xA8, 0x90, 29);
 	}
 
+	// ###########################
+	// japanese text
+	// ###########################
+	ffnx_info("DEBUG: ff7_japanese_edition = %d\n", ff7_japanese_edition);
+	if (ff7_japanese_edition)
+	{
+		ffnx_info("DEBUG: Installing Japanese text hooks!\n");
+		ffnx_info("DEBUG: field_submit_draw_text_640x480_6E706D = 0x%X\n", ff7_externals.field_submit_draw_text_640x480_6E706D);
+		ffnx_info("DEBUG: field_submit_and_draw_text_box_and_text_6EBF2C = 0x%X\n", ff7_externals.field_submit_and_draw_text_box_and_text_6EBF2C);
+		ffnx_info("DEBUG: common_submit_draw_char_from_buffer_6F564E = 0x%X\n", ff7_externals.common_submit_draw_char_from_buffer_6F564E);
+		replace_function(ff7_externals.field_submit_draw_text_640x480_6E706D, field_submit_draw_text_640x480_6E706D_jp);
+		replace_function((uint32_t)ff7_externals.engine_load_menu_graphics_objects_6C1468, engine_load_menu_graphics_objects_6C1468_jp);
+		replace_function((uint32_t)ff7_externals.field_draw_text_boxes_and_text_graphics_object_6ECA68, field_draw_text_boxes_and_text_graphics_object_6ECA68_jp);
+		replace_function((uint32_t)ff7_externals.common_submit_draw_char_from_buffer_6F564E, common_submit_draw_char_from_buffer_6F564E_jp);
+		replace_function((uint32_t)	ff7_externals.menu_draw_everything_6CC9D3, menu_draw_everything_6CC9D3_jp);
+		replace_function((uint32_t)	ff7_externals.battle_draw_menu_everything_6CEE84, battle_draw_menu_everything_6CEE84_jp);
+		replace_function((uint32_t)	ff7_externals.draw_text_top_display_6D1CC0, draw_text_top_display_6D1CC0_jp);
+		replace_function((uint32_t)	ff7_externals.main_menu_draw_everything_maybe_6C0B91, main_menu_draw_everything_maybe_6C0B91_jp);
+		//replace_function((uint32_t)	ff7_externals.field_text_box_window_paging_631945, field_text_box_window_paging_631945_jp);
+		replace_function((uint32_t)	ff7_externals.field_text_box_window_opening_6317A9, field_text_box_window_opening_6317A9_jp);
+
+		patch_code_byte(0x632C4E, 0xC);
+		patch_code_byte(0x632C4E + 0x1, 0xC);
+		patch_code_byte(0x632C4E + 0x2, 0xC);
+		patch_code_byte(0x632C4E + 0x3, 0xC);
+		patch_code_byte(0x632C4E + 0x4, 0xC);
+
+		replace_function(ff7_externals.sub_6F54A2, sub_6F54A2_jp);
+	}
+
+	// ###########################
+	// Title video hook (all editions)
+	// ###########################
+	// Install title screen hook for ALL editions (not just Japanese)
+	if (title_video_enable) {
+		ffnx_info("DEBUG: Installing universal title screen hook for video playback\n");
+		replace_function((uint32_t)ff7_externals.main_menu_draw_everything_maybe_6C0B91, main_menu_draw_everything_maybe_6C0B91_jp);
+	}
+
+	// ###########################
+	// Multi-language enemy name hook (Western editions)
+	// ###########################
+	// For DE/FR/ES: Hook enemy name retrieval to inject localized text
+	// This is separate from Japanese hooks as it doesn't change font rendering
+	ff7::battle::install_enemy_name_hook();
+
 	//######################
 	// menu rendering fix
 	//######################
@@ -397,6 +442,11 @@ void ff7_init_hooks(struct game_obj *_game_object)
 
 	if (game_lighting != GAME_LIGHTING_ORIGINAL)
 	{
+		// Disables unnecesary lighting in Chocobos applied throught the KAWAI op
+		memset_code(ff7_externals.field_apply_kawai_op_64A070 + 0x864, 0x90, 5);
+		memset_code(ff7_externals.field_apply_kawai_op_64A070 + 0x2E4, 0x90, 5);
+		memset_code(ff7_externals.field_apply_kawai_op_64A070 + 0x3A3, 0x90, 5);
+		memset_code(ff7_externals.field_apply_kawai_op_64A070 + 0x23C, 0x90, 5);
 		// Disables unnecessary lighting in temple of the ancients rolling rocks
 		replace_function(ff7_externals.sub_64EC60, noop);
 	}
@@ -404,27 +454,27 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	//#############################################
 	// steam save game preservation and other fixes
 	//#############################################
-	if (steam_edition || ff7_steam_rerelease_edition)
+	if (steam_edition)
 	{
 		switch(version)
 		{
 			case VERSION_FF7_102_US:
-				if (steam_edition) replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x1096, ff7_write_save_file);
+				replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x1096, ff7_write_save_file);
 				// Disable "Normal" setting in Controller section of the Config menu (it softlocks on Steam)
 				memset_code(ff7_externals.config_menu_sub + 0x8AC, 0x90, 0xE6);
 				break;
 			case VERSION_FF7_102_DE:
-				if (steam_edition) replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x10B2, ff7_write_save_file);
+				replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x10B2, ff7_write_save_file);
 				// Disable "Normal" setting in Controller section of the Config menu (it softlocks on Steam)
 				memset_code(ff7_externals.config_menu_sub + 0x8B3, 0x90, 0xE6);
 				break;
 			case VERSION_FF7_102_FR:
-				if (steam_edition) replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x10B2, ff7_write_save_file);
+				replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x10B2, ff7_write_save_file);
 				// Disable "Normal" setting in Controller section of the Config menu (it softlocks on Steam)
 				memset_code(ff7_externals.config_menu_sub + 0x8AC, 0x90, 0xE6);
 				break;
 			case VERSION_FF7_102_SP:
-				if (steam_edition) replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x10FE, ff7_write_save_file);
+				replace_call_function(ff7_externals.menu_sub_6FEDB0 + 0x10FE, ff7_write_save_file);
 				// Disable "Normal" setting in Controller section of the Config menu (it softlocks on Steam)
 				memset_code(ff7_externals.config_menu_sub + 0x8B3, 0x90, 0xE6);
 				break;
@@ -433,8 +483,28 @@ void ff7_init_hooks(struct game_obj *_game_object)
 		// Restore Steam release behavior on character name screen when using gamepads in Steam Input mode
 		// Aali driver used to patch out these three functions to fix this issue
 		replace_function(ff7_externals.set_default_input_settings_save, noop);
-		replace_function(ff7_externals.keyboard_name_input, noop);
 		replace_function(ff7_externals.restore_input_settings, noop);
+
+		// Japanese naming screen patches - only apply when ff7_language == "ja"
+		if (ff7_language == "ja" || ff7_japanese_edition)
+		{
+			// Hook keyboard_name_input for Japanese naming screen (INJECTION approach 2025-12-13)
+			// - Blanks English grid in memory, renders Japanese overlay
+			// - Writes Japanese chars to vanilla's temp buffer at 0xDD45F0
+			// - Vanilla's confirm logic then saves our Japanese data to savemap
+			replace_function(ff7_externals.keyboard_name_input, ff7_naming_keyboard_input_jp);
+
+			// Patch Y cursor limit from 7 rows (0-6) to 9 rows (0-8) for Japanese naming screen
+			// Japanese kana grids have 9 rows vs English's 7 rows
+			// Patch 1: CMP [00DD453C], 06 -> CMP [00DD453C], 08 (increment check)
+			// Address 0x00718E9D contains the 06 byte in the comparison
+			memset_code(0x00718E9D, 0x08, 1);
+			// Patch 2: MOV [00DD453C], 06 -> MOV [00DD453C], 08 (clamp value)
+			// Address 0x00719569 contains the 06 byte in the MOV instruction
+			memset_code(0x00719569, 0x08, 1);
+
+			ffnx_info("Japanese naming screen patches applied (ff7_language=%s)\n", ff7_language.c_str());
+		}
 
     // Patch the default config bitmask so that "Customize" controller option is enabled by default
     memset_code(ff7_externals.config_initialize + 0x36, 0x45, 1);
@@ -443,13 +513,14 @@ void ff7_init_hooks(struct game_obj *_game_object)
 	//###############################
 	// steam achievement unlock calls
 	//###############################
-	if(enable_steam_achievements)
+	if(steam_edition || enable_steam_achievements)
 	{
 		// BATTLE SQUARE
 		replace_call_function(ff7_externals.battle_sub_42A0E7 + 0x78, ff7::battle::load_battle_stage);
 
 		// GIL, MASTER MATERIA, BATTLE WON
 		replace_call_function(ff7_externals.battle_enemy_killed_sub_433BD2 + 0x2AF, ff7::battle::battle_sub_5C7F94);
+
 		replace_call_function(ff7_externals.menu_sub_6CDA83 + 0x20, ff7_menu_battle_end_sub_6C9543);
 		if (version == VERSION_FF7_102_US) {
 			replace_call_function(ff7_externals.menu_shop_loop + 0x327B, ff7_get_materia_gil);
@@ -458,8 +529,11 @@ void ff7_init_hooks(struct game_obj *_game_object)
 		}
 		replace_function(ff7_externals.opcode_increase_gil_call, ff7_opcode_increase_gil_call);
 
-		// 1ST LIMIT BREAK
-		replace_function(ff7_externals.display_battle_action_text_sub_6D71FA, ff7::battle::display_battle_action_text_sub_6D71FA);
+		// 1ST LIMIT BREAK - DISABLED: causes crash due to replace_function patching entry point
+		// The stored address gets patched, so calling through it creates infinite loop
+		// TODO: Use replace_call_function on call sites instead, or implement proper trampoline
+		// ff7::battle::g_original_display_battle_action_text = ff7_externals.display_battle_action_text_sub_6D71FA;
+		// replace_function(ff7_externals.display_battle_action_text_sub_6D71FA, ff7::battle::display_battle_action_text_sub_6D71FA);
 
 		// MATERIA GOT
 		replace_call_function(ff7_externals.opcode_add_materia_inventory_call + 0x43, ff7_menu_sub_6CBCF3);
@@ -484,11 +558,6 @@ void ff7_init_hooks(struct game_obj *_game_object)
 				replace_call_function(ff7_externals.menu_sub_7212FB + 0xEC5, ff7_load_save_file);
 				break;
 		}
-
-		// For RE-RELEASE edition
-		replace_call_function(ff7_externals.battle_loop + 0xB78, ff7_engine_switch_game_loop_sub_666CF2);
-		replace_call_function(ff7_externals.chocobo_main_loop + 0x7E, ff7_chocobo_switch_mode_76DB33);
-		patch_code_dword(ff7_externals.highway_exit_address_location, (DWORD)ff7_highway_exit_650340);
 	}
 
 	replace_call(ff7_externals.credits_main_loop + 0xAC, ff7_credits_loop_gfx_begin_scene);

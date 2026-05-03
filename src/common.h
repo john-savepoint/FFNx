@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -52,7 +52,6 @@
 
 // Steam app id of FF7 & FF8
 #define FF7_APPID 39140
-#define FF7_RERELEASE_APPID 3837340
 #define FF8_APPID 39150
 
 #define NV_VERSION (!(version & 1))
@@ -91,7 +90,6 @@ enum game_modes
 	MODE_EXIT,
 	MODE_SWIRL,
 	MODE_GAMEOVER,
-	MODE_ENDINGMOVIE,
 	MODE_CREDITS,
 	MODE_INTRO,
 	MODE_CARDGAME,
@@ -241,7 +239,7 @@ struct common_externals
 	uint32_t set_midi_volume_fade;
 	uint32_t set_midi_tempo;
 	uint32_t remember_midi_playing_time;
-	uint32_t draw_graphics_object;
+	int (*draw_graphics_object)(int n_shape, graphics_object *graphics_object);
 	char *font_info;
 	uint32_t build_dialog_window;
 	uint32_t write_file;

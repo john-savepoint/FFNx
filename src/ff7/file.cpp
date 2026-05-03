@@ -26,17 +26,246 @@
 #include "../ff7.h"
 #include "../log.h"
 #include "../redirect.h"
+#include "../globals.h"
+
+// Helper function to replace a substring in a path
+// Returns true if replacement was made
+static bool replace_lgp_name(char* path, size_t path_size, const char* search, const char* replace)
+{
+	char* pos = strstr(path, search);
+	if(pos == NULL) return false;
+
+	size_t search_len = strlen(search);
+	size_t replace_len = strlen(replace);
+	size_t suffix_len = strlen(pos + search_len);
+
+	// Check if we have enough space
+	if((pos - path) + replace_len + suffix_len >= path_size) return false;
+
+	// Move the suffix to make room for the replacement
+	memmove(pos + replace_len, pos + search_len, suffix_len + 1);
+	// Copy the replacement
+	memcpy(pos, replace, replace_len);
+
+	return true;
+}
+
+// Language-based LGP file routing
+// Routes game requests to language-specific LGP files based on ff7_language setting
+// Supports: en (English), ja (Japanese), de (German), fr (French), es (Spanish)
+static void apply_language_routing(char* modified_filename, size_t size)
+{
+	const char* lang = ff7_language.c_str();
+	bool is_ja = (ff7_language == "ja" || ff7_japanese_edition);
+	bool is_de = (ff7_language == "de");
+	bool is_fr = (ff7_language == "fr");
+	bool is_es = (ff7_language == "es");
+	// en is default - no routing needed for most files
+
+	// ============================================================
+	// FIELD DATA (data/field/)
+	// Pattern: flevel.lgp -> flevel_en.lgp for ALL languages
+	//
+	// CRITICAL: All languages now use English flevel.lgp for encounters!
+	// This ensures correct battle formation mappings that work with
+	// the English scene.bin block structure (12 scenes per block).
+	//
+	// German/French/Spanish text is handled via separate text injection
+	// from their respective language LGP files (gflevel, fflevel, sflevel).
+	// ============================================================
+	// ALWAYS log flevel routing for debugging
+	ffnx_info("[MLANG-ROUTE] Checking file: '%s' (lang=%s, is_de=%d)\n", modified_filename, lang, is_de);
+
+	if(strstr(modified_filename, "flevel.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+
+		// Use English flevel for DE/FR/ES to get correct encounter mappings
+		// Japanese has its own compatible structure, so keep jfleve.lgp
+		if(ff7_language == "en") new_lgp = "flevel_en.lgp";
+		else if(is_ja) new_lgp = "jfleve.lgp";
+		else if(is_de) new_lgp = "flevel_en.lgp";  // Changed: Use EN for correct encounters
+		else if(is_fr) new_lgp = "flevel_en.lgp";  // Changed: Use EN for correct encounters
+		else if(is_es) new_lgp = "flevel_en.lgp";  // Changed: Use EN for correct encounters
+
+		ffnx_info("[MLANG-FIELD] Routing flevel: current='%s', new_lgp='%s'\n", modified_filename, new_lgp ? new_lgp : "NULL");
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "flevel.lgp", new_lgp))
+		{
+			ffnx_info("[MLANG-FIELD] SUCCESS: Routed to %s\n", modified_filename);
+		}
+		else
+		{
+			ffnx_info("[MLANG-FIELD] FAILED or skipped routing\n");
+		}
+	}
+
+	// ============================================================
+	// MENU SYSTEM (data/menu/)
+	// Pattern: menu_us.lgp -> menu_[lang].lgp
+	// Codes: us=EN, ja=JA, gm=DE, fr=FR, sp=ES
+	// ============================================================
+	else if(strstr(modified_filename, "menu_us.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_ja) new_lgp = "menu_ja.lgp";
+		else if(is_de) new_lgp = "menu_gm.lgp";
+		else if(is_fr) new_lgp = "menu_fr.lgp";
+		else if(is_es) new_lgp = "menu_sp.lgp";
+		// en: keep menu_us.lgp
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "menu_us.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [menu]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+
+	// ============================================================
+	// CD DATA (data/cd/)
+	// Pattern: cr_us.lgp, disc_us.lgp -> [name]_[lang].lgp
+	// Codes: us=EN, gm=DE, fr=FR, sp=ES (NO Japanese variant)
+	// ============================================================
+	else if(strstr(modified_filename, "cr_us.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "cr_gm.lgp";
+		else if(is_fr) new_lgp = "cr_fr.lgp";
+		else if(is_es) new_lgp = "cr_sp.lgp";
+		// ja/en: keep cr_us.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "cr_us.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [cd/cr]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+	else if(strstr(modified_filename, "disc_us.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "disc_gm.lgp";
+		else if(is_fr) new_lgp = "disc_fr.lgp";
+		else if(is_es) new_lgp = "disc_sp.lgp";
+		// ja/en: keep disc_us.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "disc_us.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [cd/disc]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+
+	// ============================================================
+	// WORLD MAP (data/wm/)
+	// Pattern: world_us.lgp -> world_[lang].lgp
+	// Codes: us=EN, gm=DE, fr=FR, sp=ES (NO Japanese variant)
+	// ============================================================
+	else if(strstr(modified_filename, "world_us.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "world_gm.lgp";
+		else if(is_fr) new_lgp = "world_fr.lgp";
+		else if(is_es) new_lgp = "world_sp.lgp";
+		// ja/en: keep world_us.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "world_us.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [world]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+
+	// ============================================================
+	// MINIGAMES - CHOCOBO (data/minigame/)
+	// Pattern: chocobo.lgp -> [prefix]chocobo.lgp
+	// Prefixes: (none)=EN, f=FR, g=DE, s=ES (NO Japanese variant)
+	// ============================================================
+	else if(strstr(modified_filename, "chocobo.lgp") != NULL && strstr(modified_filename, "fchocobo") == NULL
+		&& strstr(modified_filename, "gchocobo") == NULL && strstr(modified_filename, "schocobo") == NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "gchocobo.lgp";
+		else if(is_fr) new_lgp = "fchocobo.lgp";
+		else if(is_es) new_lgp = "schocobo.lgp";
+		// ja/en: keep chocobo.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "chocobo.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [chocobo]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+
+	// ============================================================
+	// MINIGAMES - SUBMARINE (data/minigame/)
+	// Pattern: sub.lgp -> [prefix]sub.lgp
+	// Prefixes: (none)=EN, f=FR, g=DE, s=ES (NO Japanese variant)
+	// ============================================================
+	else if(strstr(modified_filename, "sub.lgp") != NULL && strstr(modified_filename, "fsub") == NULL
+		&& strstr(modified_filename, "gsub") == NULL && strstr(modified_filename, "ssub") == NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "gsub.lgp";
+		else if(is_fr) new_lgp = "fsub.lgp";
+		else if(is_es) new_lgp = "ssub.lgp";
+		// ja/en: keep sub.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "sub.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [sub]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+
+	// ============================================================
+	// MINIGAMES - HIGHWIND (data/minigame/)
+	// Pattern: high-us.lgp -> high-[lang].lgp
+	// Codes: us=EN, ge=DE, fr=FR, sp=ES (NO Japanese variant)
+	// ============================================================
+	else if(strstr(modified_filename, "high-us.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "high-ge.lgp";
+		else if(is_fr) new_lgp = "high-fr.lgp";
+		else if(is_es) new_lgp = "high-sp.lgp";
+		// ja/en: keep high-us.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "high-us.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [high]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+
+	// ============================================================
+	// MINIGAMES - SNOWBOARD (data/minigame/)
+	// Pattern: snowboard-us.lgp -> snowboard-[lang].lgp
+	// Codes: us=EN, ge=DE, fr=FR, sp=ES (NO Japanese variant)
+	// ============================================================
+	else if(strstr(modified_filename, "snowboard-us.lgp") != NULL)
+	{
+		const char* new_lgp = NULL;
+		if(is_de) new_lgp = "snowboard-ge.lgp";
+		else if(is_fr) new_lgp = "snowboard-fr.lgp";
+		else if(is_es) new_lgp = "snowboard-sp.lgp";
+		// ja/en: keep snowboard-us.lgp (no Japanese variant)
+
+		if(new_lgp && replace_lgp_name(modified_filename, size, "snowboard-us.lgp", new_lgp))
+		{
+			if(trace_all || trace_files) ffnx_trace("Language routing [snowboard]: %s (lang=%s)\n", modified_filename, lang);
+		}
+	}
+}
 
 FILE *open_lgp_file(char *filename, uint32_t mode)
 {
 	char _filename[260]{ 0 };
 	if(trace_all || trace_files) ffnx_trace("opening lgp file %s\n", filename);
 
-	int redirect_status = attempt_redirection(filename, _filename, sizeof(_filename));
+	char modified_filename[260]{ 0 };
+	strcpy(modified_filename, filename);
+
+	// Apply language-based routing for all LGP files
+	apply_language_routing(modified_filename, sizeof(modified_filename));
+
+	int redirect_status = attempt_redirection(modified_filename, _filename, sizeof(_filename));
 
 	if (redirect_status == -1)
 	{
-		strcpy(_filename, filename);
+		strcpy(_filename, modified_filename);
 	}
 
 	return fopen(_filename, "rb");
@@ -229,6 +458,18 @@ struct lgp_file *lgp_open_file(char *filename, uint32_t lgp_num)
 		{
 			switch (lgp_num) {
 				case 4: // menu
+					// For Japanese edition, try menu_ja.lgp first
+					if(ff7_japanese_edition)
+					{
+						_snprintf(tmp, sizeof(tmp), "%s/%s/%s_ja.lgp/%s%s", basedir, direct_mode_path.c_str(), lgp_names[lgp_num], fname, ext);
+						ret->fd = fopen(tmp, "rb");
+						if(ret->fd && (trace_all || trace_direct)) ffnx_trace("lgp_open_file: using Japanese menu LGP: %s\n", tmp);
+					}
+					if(!ret->fd)
+					{
+						_snprintf(tmp, sizeof(tmp), "%s/%s/%s_us.lgp/%s%s", basedir, direct_mode_path.c_str(), lgp_names[lgp_num], fname, ext);
+					}
+					break;
 				case 5: // world
 				case 15: // cr
 				case 16: // disc
@@ -239,7 +480,7 @@ struct lgp_file *lgp_open_file(char *filename, uint32_t lgp_num)
 					_snprintf(tmp, sizeof(tmp), "%s/%s/%s-us.lgp/%s%s", basedir, direct_mode_path.c_str(), lgp_names[lgp_num], fname, ext);
 					break;
 			}
-			ret->fd = fopen(tmp, "rb");
+			if(!ret->fd) ret->fd = fopen(tmp, "rb");
 		}
 
 		if(!ret->fd)

@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -50,11 +50,9 @@ extern HWND gameHwnd;
 extern MEMORYSTATUSEX last_ram_state;
 extern uint32_t version;
 extern uint32_t steam_edition;
-extern uint32_t ff7_steam_rerelease_edition;
-extern uint32_t steam_stock_launcher;
 extern uint32_t estore_edition;
-extern uint32_t ff7_2026_rerelease;
 extern uint32_t ff7_japanese_edition;
+extern std::string ff7_language;  // Language code: "en", "ja", "de", "fr", "es"
 extern uint32_t ff7_do_reset;
 
 #define BASEDIR_LENGTH 512

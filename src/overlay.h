@@ -6,7 +6,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2020 Marcin Gomulak                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -41,6 +41,7 @@ private:
 	bool field_debug_open = false;
 	bool lighting_debug_open = false;
 	bool world_debug_open = false;
+	bool sdf_debug_open = false;
 
 	MemoryEditor mem_edit;
 
@@ -48,7 +49,6 @@ private:
 	bool UpdateMouseCursor();
 	void Update();
 	void Render(ImDrawData* drawData);
-	inline bool IsVkDown(int vk);
 public:
 	bool init(bgfx::ProgramHandle program, int width, int height);
 	void drawMainWindow();

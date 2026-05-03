@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
@@ -28,7 +28,16 @@
 
 #include "common.h"
 #include "ff7.h"
-#include "../widescreen.h"
+
+int wide_viewport_x = -107;
+int wide_viewport_y = 0;
+int wide_viewport_width = 854;
+int wide_viewport_height = 480;
+
+int wide_game_x = 0;
+int wide_game_y = 0;
+int wide_game_width = 854;
+int wide_game_height = 480;
 
 void ff7_widescreen_hook_init();
 

@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#include <libvgmstream/util/log.h>
+#include <libvgmstream/vgmstream.h>
 
 #if defined(__cplusplus)
 }
@@ -75,15 +75,8 @@ void NxAudioEngine::loadConfig()
 		}
 		catch (const toml::parse_error &err)
 		{
-			if (!fileExists(_fullpath))
-			{
-				ffnx_warning("File %s not found. Will continue with the default settings.\n", _fullpath);
-			}
-			else
-			{
-				ffnx_warning("Parse error while opening the file %s. Will continue with the default settings.\n", _fullpath);
-				ffnx_warning("%s (Line %u Column %u)\n", err.what(), err.source().begin.line, err.source().begin.column);
-			}
+			ffnx_warning("Parse error while opening the file %s. Will continue with the default settings.\n", _fullpath);
+			ffnx_warning("%s (Line %u Column %u)\n", err.what(), err.source().begin.line, err.source().begin.column);
 
 			nxAudioEngineConfig[type] = toml::parse("");
 		}
@@ -117,19 +110,19 @@ bool NxAudioEngine::getFilenameFullPath(char *_out, const char* _key, NxAudioEng
 		switch (_type)
 		{
 		case NxAudioEngineLayer::NXAUDIOENGINE_SFX:
-			snprintf(_out, MAX_PATH, "%s/%s/%s.%s", basedir, external_sfx_path.c_str(), _key, extension.c_str());
+			sprintf(_out, "%s/%s/%s.%s", basedir, external_sfx_path.c_str(), _key, extension.c_str());
 			break;
 		case NxAudioEngineLayer::NXAUDIOENGINE_MUSIC:
-			snprintf(_out, MAX_PATH, "%s/%s/%s.%s", basedir, external_music_path.c_str(), _key, extension.c_str());
+			sprintf(_out, "%s/%s/%s.%s", basedir, external_music_path.c_str(), _key, extension.c_str());
 			break;
 		case NxAudioEngineLayer::NXAUDIOENGINE_VOICE:
-			snprintf(_out, MAX_PATH, "%s/%s/%s.%s", basedir, external_voice_path.c_str(), _key, extension.c_str());
+			sprintf(_out, "%s/%s/%s.%s", basedir, external_voice_path.c_str(), _key, extension.c_str());
 			break;
 		case NxAudioEngineLayer::NXAUDIOENGINE_AMBIENT:
-			snprintf(_out, MAX_PATH, "%s/%s/%s.%s", basedir, external_ambient_path.c_str(), _key, extension.c_str());
+			sprintf(_out, "%s/%s/%s.%s", basedir, external_ambient_path.c_str(), _key, extension.c_str());
 			break;
 		case NxAudioEngineLayer::NXAUDIOENGINE_MOVIE_AUDIO:
-			snprintf(_out, MAX_PATH, "%s.%s", _key, extension.c_str());
+			sprintf(_out, "%s.%s", _key, extension.c_str());
 			break;
 		}
 
@@ -295,7 +288,7 @@ void NxAudioEngine::unloadSFXChannel(int channel)
 	}
 }
 
-bool NxAudioEngine::playSFX(const char* name, int id, int channel, float panning, bool loop, float volume)
+bool NxAudioEngine::playSFX(const char* name, int id, int channel, float panning, bool loop)
 {
 	NxAudioEngineSFX *options = &_sfxChannels[channel - 1];
 	int _curId = id;
@@ -331,9 +324,6 @@ bool NxAudioEngine::playSFX(const char* name, int id, int channel, float panning
 	{
 		unloadSFXChannel(channel);
 	}
-
-	// Reset state
-	options->volume = volume;
 
 	auto node = nxAudioEngineConfig[NxAudioEngineLayer::NXAUDIOENGINE_SFX][name];
 	if (node)
@@ -392,7 +382,7 @@ bool NxAudioEngine::playSFX(const char* name, int id, int channel, float panning
 		if (trace_all || trace_sfx) ffnx_trace("NxAudioEngine::%s: panning overridden because of external_sfx_always_centered\n", __func__);
 	}
 
-	if (trace_all || trace_sfx) ffnx_trace("NxAudioEngine::%s: name=%s,id=%d,channel=%d,panning=%f,volume=%f\n", __func__, name, options->id, channel, panning, options->volume);
+	if (trace_all || trace_sfx) ffnx_trace("NxAudioEngine::%s: name=%s,id=%d,channel=%d,panning=%f\n", __func__, name, options->id, channel, panning);
 
 	if (options->stream != nullptr)
 	{
@@ -471,8 +461,6 @@ void NxAudioEngine::setSFXVolume(int channel, float volume, double time)
 	NxAudioEngineSFX *options = &_sfxChannels[channel - 1];
 
 	options->volume = volume;
-
-	if (trace_all || trace_sfx) ffnx_trace("NxAudioEngine::%s: channel=%d,volume=%f\n", __func__, channel, volume);
 
 	if (time > 0.0) {
 		time /= gamehacks.getCurrentSpeedhack();
@@ -572,18 +560,19 @@ void NxAudioEngine::cleanOldAudioSources()
 	if (trace_all || trace_music) ffnx_trace("NxAudioEngine::%s: %d elements in the list after cleaning\n", __func__, _audioSourcesToDeleteLater.size());
 }
 
-SoLoud::AudioSource* NxAudioEngine::loadMusic(const char* name, bool useNameAsFullPath, const char* format, bool suppressOpeningSilence)
+SoLoud::AudioSource* NxAudioEngine::loadMusic(const char* name, bool isFullPath, const char* format, bool suppressOpeningSilence)
 {
 	SoLoud::AudioSource* music = nullptr;
 	char filename[MAX_PATH];
 	bool exists = false;
 
-	if (useNameAsFullPath)
+	if (isFullPath)
 	{
-		exists = true;
+		exists = fileExists(name);
 		strcpy(filename, name);
 	}
-	else
+
+	if (!exists)
 	{
 		exists = getFilenameFullPath(filename, name, NxAudioEngineLayer::NXAUDIOENGINE_MUSIC);
 	}
@@ -790,42 +779,11 @@ void NxAudioEngine::playSynchronizedMusics(const std::vector<std::string>& names
 	}
 }
 
-/**
- * Put music on top of the music stack for backup/restore feature
- */
-void NxAudioEngine::prioritizeMusicRestore(uint32_t id)
+void NxAudioEngine::swapChannels()
 {
-	std::stack<NxAudioEngineMusic> removedElements;
-	NxAudioEngineMusic foundElement = NxAudioEngineMusic();
-
-	// Search for id
-	while (! _musicStack.empty()) {
-		const NxAudioEngineMusic &backup = _musicStack.top();
-
-		if (backup.id == id) {
-			foundElement = backup;
-			break;
-		}
-
-		removedElements.push(backup);
-
-		_musicStack.pop();
-	}
-
-	// Rebuild stack
-	while (!removedElements.empty()) {
-		_musicStack.push(removedElements.top());
-		removedElements.pop();
-	}
-
-	// Push music on top
-	if (foundElement.id == id) {
-		if (trace_all || trace_music) ffnx_trace("NxAudioEngine::%s: found midi %d\n", __func__, id);
-
-		_musicStack.push(foundElement);
-	} else {
-		if (trace_all || trace_music) ffnx_trace("NxAudioEngine::%s: midi %d not found\n", __func__, id);
-	}
+	NxAudioEngineMusic music1 = _musics[0];
+	_musics[0] = _musics[1];
+	_musics[1] = music1;
 }
 
 void NxAudioEngine::stopMusic(double time)
@@ -1095,15 +1053,9 @@ bool NxAudioEngine::playVoice(const char* name, int slot, float volume, int game
 
 	bool exists = false;
 
-	if (slot < 0 || slot >= _voiceMaxSlots)
-	{
-		ffnx_error("%s: invalid slot value %d\n", __func__, slot);
-		return false;
-	}
-
 	_currentVoice[slot].volume = volume * getVoiceMasterVolume();
 
-	std::string _name(name, strnlen(name, MAX_PATH));
+	std::string _name(name);
 
 	// TOML doesn't like the / char as key, replace it with - ( one of the valid accepted chars )
 	replaceAll(_name, '/', '-');

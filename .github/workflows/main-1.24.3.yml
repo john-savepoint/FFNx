@@ -1,6 +1,6 @@
 name: FFNx
 
-run-name: 1.24.3.${{ github.run_number }}
+run-name: 1.21.0.${{ github.run_number }}
 
 on:
   workflow_dispatch:
@@ -23,10 +23,14 @@ env:
   _CHANGELOG_VERSION: "0"
   # GIT: Fix reporting from stderr to stdout
   GIT_REDIRECT_STDERR: 2>&1
+  # Tools versions
+  _WINGET_CMAKE: 3.30.3
+  _WINGET_POWERSHELL: 7.4.5
+  _WINGET_VS2022: 17.11.1
 
 jobs:
   FFNx:
-    runs-on: windows-2025-vs2026
+    runs-on: windows-latest
     timeout-minutes: 1440
     strategy:
       max-parallel: 1
@@ -37,22 +41,17 @@ jobs:
         git config --global core.filemode false
         git config --global core.longpaths true
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.1.0
+    - name: Install WinGet
+      uses: Cyberboss/install-winget@v1
       with:
-        submodules: recursive
-        fetch-depth: 0
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Build
       run: ".github/workflows/build.ps1"
       shell: pwsh
       env:
-        _BUILD_VERSION: "1.24.3.${{ github.run_number }}"
+        _BUILD_VERSION: "1.21.0.${{ github.run_number }}"
         GITHUB_PACKAGES_PAT: ${{ secrets.GITHUB_TOKEN }}
-    - name: Upload vcpkg build logs
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: vcpkg-logs
-        path: ${{ github.workspace }}/vcpkg/buildtrees/**/*.log
     - name: Publish PR artifacts
       if: env._IS_GITHUB_RELEASE == 'false' && success()
       uses: actions/upload-artifact@v4.0.0
@@ -84,11 +83,6 @@ jobs:
           console.log(ret);
 
           return ret;
-    - name: Move canary tag to this commit
-      uses: richardsimko/update-tag@v1
-      if: env._IS_GITHUB_RELEASE == 'true' && env._IS_BUILD_CANARY == 'true' && success()
-      with:
-        tag_name: canary
     - name: Publish Canary release
       uses: ncipollo/release-action@v1
       if: env._IS_GITHUB_RELEASE == 'true' && env._IS_BUILD_CANARY == 'true' && success()
@@ -130,16 +124,3 @@ jobs:
         _MAP_FFNX_QHIMM_FF8: "${{ secrets._FFNX_QHIMM_FF8 }}"
       run: ".github/workflows/alert.ps1"
       shell: pwsh
-    - name: Cleanup previous release workflows
-      uses: Mattraks/delete-workflow-runs@v2
-      if: env._IS_GITHUB_RELEASE == 'true' && env._IS_BUILD_CANARY == 'false' && success()
-      with:
-        token: ${{ github.token }}
-        repository: ${{ github.repository }}
-        retain_days: 1
-        keep_minimum_runs: 1
-        delete_run_by_conclusion_pattern: >-
-          ${{
-            !contains(github.event.inputs.delete_run_by_name_pattern, '1.24.3')
-            && github.event.inputs.delete_run_by_name_pattern
-          }}

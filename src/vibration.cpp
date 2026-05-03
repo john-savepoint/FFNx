@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2023 myst6re                                            //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "gamepad.h"
-#include "sdl_gamepad.h"
 #include "joystick.h"
 #include "globals.h"
 #include "log.h"
@@ -52,10 +51,7 @@ void NxVibrationEngine::setLeftMotorValue(uint8_t force)
 
 	if (force > 0)
 	{
-		if (use_sdl_gamepad)
-			_leftMotorStopTimeFrame = (sdlgamepad.GetPort() > 0) ? frame_counter + LEFT_MOTOR_DURATION_FRAMES : 0;
-		else
-			_leftMotorStopTimeFrame = xinput_connected ? frame_counter + LEFT_MOTOR_DURATION_FRAMES : 0;
+		_leftMotorStopTimeFrame = xinput_connected ? frame_counter + LEFT_MOTOR_DURATION_FRAMES : 0;
 		_left = force;
 	}
 }
@@ -85,20 +81,7 @@ bool NxVibrationEngine::hasChanged() const
 
 void NxVibrationEngine::updateLeftMotorValue()
 {
-	if (use_sdl_gamepad)
-	{
-		if (sdlgamepad.GetPort() > 0 && _leftMotorStopTimeFrame > 0 && frame_counter > _leftMotorStopTimeFrame)
-		{
-			if (trace_all || trace_gamepad) ffnx_trace("NxVibrationEngine::%s stop\n", __func__);
-			_leftMotorStopTimeFrame = 0;
-			_left = 0;
-		}
-		else if (sdlgamepad.GetPort() <= 0)
-		{
-			_leftMotorStopTimeFrame = 0;
-		}
-	}
-	else if (xinput_connected && _leftMotorStopTimeFrame > 0 && frame_counter > _leftMotorStopTimeFrame)
+	if (xinput_connected && _leftMotorStopTimeFrame > 0 && frame_counter > _leftMotorStopTimeFrame)
 	{
 		if (trace_all || trace_gamepad) ffnx_trace("NxVibrationEngine::%s stop\n", __func__);
 		_leftMotorStopTimeFrame = 0;
@@ -121,14 +104,7 @@ bool NxVibrationEngine::rumbleUpdate()
 
 	if (trace_all || trace_gamepad) ffnx_trace("NxVibrationEngine::%s left=%d right=%d\n", __func__, _left, _right);
 
-	DWORD maxVibration;
-	if (use_sdl_gamepad)
-		maxVibration = UINT16_MAX;
-	else if (xinput_connected)
-		maxVibration = UINT16_MAX;
-	else
-		maxVibration = joystick.GetMaxVibration();
-
+	const DWORD maxVibration = xinput_connected ? UINT16_MAX : joystick.GetMaxVibration();
 	DWORD left = _left * maxVibration / LEFT_MOTOR_MAX_VALUE;
 	DWORD right = _right * maxVibration / RIGHT_MOTOR_MAX_VALUE;
 
@@ -139,11 +115,7 @@ bool NxVibrationEngine::rumbleUpdate()
 		right = maxVibration;
 	}
 
-	if (use_sdl_gamepad)
-	{
-		sdlgamepad.Vibrate(left, right);
-	}
-	else if (xinput_connected)
+	if (xinput_connected)
 	{
 		gamepad.Vibrate(left, right);
 	}
@@ -160,18 +132,12 @@ bool NxVibrationEngine::rumbleUpdate()
 
 bool NxVibrationEngine::canRumble() const
 {
-	if (use_sdl_gamepad)
-	{
-		return sdlgamepad.GetPort() > 0 && sdlgamepad.HasRumble();
-	}
-	else if (xinput_connected)
+	if (xinput_connected)
 	{
 		return gamepad.GetPort() > 0;
 	}
-	else
-	{
-		return joystick.CheckConnection() && joystick.HasForceFeedback();
-	}
+
+	return joystick.CheckConnection() && joystick.HasForceFeedback();
 }
 
 uint8_t *NxVibrationEngine::createVibrateDataFromConfig(const toml::parse_result &config)

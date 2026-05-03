@@ -1,12 +1,12 @@
-# For a list of common variables see https://github.com/microsoft/vcpkg/blob/master/docs/maintainers/vcpkg_common_definitions.md
+﻿# For a list of common variables see https://github.com/microsoft/vcpkg/blob/master/docs/maintainers/vcpkg_common_definitions.md
 
 # Download source packages
 
 vcpkg_from_github(OUT_SOURCE_PATH SOURCE_DIR
     REPO "julianxhokaxhiu/soloud"
     HEAD_REF master
-    REF 033db6c7b5bc1d1a616c4e74d21fb36a1a1cf2ca
-    SHA512 ab93d06fd20beb2cfb7bcb6f6b05386d64afaf281afa4bdb4c23e40fddd229c2576d5548752e41dd8e7aa486d537968fc4c36435b6404ac1369e10830fd36eb9
+    REF a95f563abfbf3f45f83927a322f5113ba99559bb
+    SHA512 05d6869de77c1bf578619c6c4a6523cd7afc1e2eeaa22934f32de0c7bff372dd5acde1b87a8cc50a2b8be37ac5a672060de5f5fc98e519b2f40736cbaa9868be
 )
 
 # Set up GENie (custom project generator)
@@ -14,13 +14,14 @@ vcpkg_from_github(OUT_SOURCE_PATH SOURCE_DIR
 set(SOLOUD_PROJNAME Static)
 set(GENIE_OPTIONS --with-miniaudio-only)
 
-if(VCPKG_CRT_LINKAGE STREQUAL dynamic)
-    set(SOLOUD_PROJNAME Dynamic)
-    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-dynamic-runtime)
-endif()
-if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
-    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-shared-lib)
-endif()
+# REMOVED: These options are not supported by this soloud version
+#if(VCPKG_CRT_LINKAGE STREQUAL dynamic)
+#    set(SOLOUD_PROJNAME Dynamic)
+#    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-dynamic-runtime)
+#endif()
+#if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
+#    set(GENIE_OPTIONS ${GENIE_OPTIONS} --with-shared-lib)
+#endif()
 
 if(VCPKG_TARGET_ARCHITECTURE STREQUAL x86)
     set(GENIE_OPTIONS ${GENIE_OPTIONS} --platform=x32)
@@ -53,8 +54,6 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
         set(GENIE_ACTION vs2019)
     elseif(VCPKG_PLATFORM_TOOLSET STREQUAL "v143")
         set(GENIE_ACTION vs2022)
-    elseif(VCPKG_PLATFORM_TOOLSET STREQUAL "v145")
-        set(GENIE_ACTION vs2026)
     else()
         message(FATAL_ERROR "Unsupported Visual Studio toolset: ${VCPKG_PLATFORM_TOOLSET}")
     endif()
@@ -83,12 +82,13 @@ vcpkg_execute_required_process(
 
 # Run MSBuild
 
-vcpkg_msbuild_install(
+vcpkg_install_msbuild(
     SOURCE_PATH "${SOURCE_DIR}"
     PROJECT_SUBPATH "build/${GENIE_ACTION}/SoLoud${SOLOUD_PROJNAME}.vcxproj"
+    LICENSE_SUBPATH "LICENSE"
+    INCLUDES_SUBPATH "include"
+    ALLOW_ROOT_INCLUDES
 )
-file(INSTALL "${SOURCE_DIR}/LICENSE" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}" RENAME "copyright")
-file(INSTALL "${SOURCE_DIR}/include/" DESTINATION "${CURRENT_PACKAGES_DIR}/include")
 
 # Copy cmake configuration files
 configure_file(${CMAKE_CURRENT_LIST_DIR}/FindSOLOUD.cmake.in ${CURRENT_PACKAGES_DIR}/share/${PORT}/FindSOLOUD.cmake @ONLY)

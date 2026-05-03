@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -1282,29 +1282,6 @@ namespace ff7::battle
         memset_code(ff7_externals.aerith_limit_2_1_sub_45B0CF + 0xCE, 0x90, 6);
         patch_multiply_code<byte>(ff7_externals.aerith_limit_2_1_sub_45B0CF + 0xE2, battle_frame_multiplier);
 
-        // Magics
-        patch_multiply_code<byte>(ff7_externals.battle_escape_magic_loop_5D602A + 0x3B, battle_frame_multiplier);
-        patch_multiply_code<byte>(ff7_externals.battle_escape_magic_loop_5D602A + 0x2FB, battle_frame_multiplier);
-        patch_multiply_code<byte>(ff7_externals.battle_escape_magic_loop_5D602A + 0x302, battle_frame_multiplier);
-        patch_multiply_code<byte>(ff7_externals.battle_escape_magic_loop_5D602A + 0x8F0, battle_frame_multiplier);
-        patch_multiply_code<byte>(ff7_externals.battle_escape_magic_loop_5D602A + 0x8F7, battle_frame_multiplier);
-        patch_divide_code<byte>(ff7_externals.battle_escape_magic_loop_5D602A + 0x4A, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_loop_5D602A + 0xC1, battle_frame_multiplier);
-        patch_code_byte(ff7_externals.battle_escape_magic_loop_5D602A + 0x6A8, 4 + battle_frame_multiplier / 2);
-        patch_divide_code<WORD>(ff7_externals.battle_escape_magic_loop_5D602A + 0x6CF, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x12C, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x131, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x148, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x14D, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x164, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x169, battle_frame_multiplier);
-        byte lea_eax_ecx_15[] = {0x8D, 0x54, 0x08, 0xEB};
-        byte lea_eax_ecx_10[] = {0x8D, 0x54, 0x08, 0xF0};
-        memcpy_code(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x1B2, lea_eax_ecx_15, sizeof(lea_eax_ecx_15));
-        memcpy_code(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x1CE, lea_eax_ecx_10, sizeof(lea_eax_ecx_10));
-        patch_divide_code<byte>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x1E6, battle_frame_multiplier);
-        patch_divide_code<DWORD>(ff7_externals.battle_escape_magic_init_data_5D59B0 + 0x1E8, battle_frame_multiplier);
-
         // Effect60 related
         patch_multiply_code<WORD>(ff7_externals.battle_sub_425E5F + 0x3A, battle_frame_multiplier);
 
@@ -1357,12 +1334,7 @@ namespace ff7::battle
         patch_divide_code<byte>(ff7_externals.battleground_midgar_flashback_rain_5BDC4F + 0x156, battle_frame_multiplier);
 
         // Other animations (Status effects: confusion, sleep, and silence; and player mark on top of head)
-        // And fixes for manipulate, poison and regen color effect on characters 3d models
         patch_divide_code<WORD>(ff7_externals.battle_sub_5B9EC2 + 0x1CB, battle_frame_multiplier);
-        patch_multiply_code<byte>(ff7_externals.battle_sub_5B9EC2 + 0x292, battle_frame_multiplier);
-        patch_divide_code<WORD>(ff7_externals.battle_sub_5B9EC2 + 0x2A8, battle_frame_multiplier);
-        patch_divide_code<WORD>(ff7_externals.battle_sub_5B9EC2 + 0x2D0, battle_frame_multiplier);
-        patch_code_byte(ff7_externals.battle_sub_5B9EC2 + 0x316, (0x1F + 1) * battle_frame_multiplier - 1);
         patch_code_byte(ff7_externals.battle_handle_status_effect_anim_5BA7C0 + 0x97, 0x3 + battle_frame_multiplier / 2);
         patch_divide_code<WORD>(ff7_externals.battle_handle_player_mark_5B9C8E + 0x6A, battle_frame_multiplier);
 
@@ -1394,7 +1366,6 @@ namespace ff7::battle
         fixed_effect100_addresses.insert(ff7_externals.run_ifrit_movement_596702);
         fixed_effect100_addresses.insert(ff7_externals.vincent_limit_fade_effect_sub_5D4240);
         fixed_effect100_addresses.insert(ff7_externals.cloud_limit_2_2_sub_467256);
-        fixed_effect100_addresses.insert(ff7_externals.battle_escape_magic_loop_5D602A);
         one_call_effect100_addresses.insert(ff7_externals.run_bahamut_zero_main_loop_484A16);
         one_call_effect100_addresses.insert(ff7_externals.death_sentence_main_loop_5661A0);
         one_call_effect100_addresses.insert(ff7_externals.roulette_skill_main_loop_566287);

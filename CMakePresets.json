@@ -1,15 +1,15 @@
 ﻿{
   "version": 6,
   "cmakeMinimumRequired": {
-    "major": 4,
-    "minor": 2,
+    "major": 3,
+    "minor": 25,
     "patch": 0
   },
   "configurePresets": [
     {
       "name": "base",
       "hidden": true,
-      "generator": "Visual Studio 18 2026",
+      "generator": "Visual Studio 17 2022",
       "architecture": {
         "value": "win32",
         "strategy": "set"
@@ -20,7 +20,7 @@
       },
       "environment": {
         "NUGET_CLI_LANGUAGE": "en-us",
-        "VCPKG_ROOT": "${sourceDir}/vcpkg",
+        "VCPKG_ROOT": "C:/vcpkg",
         "VCPKG_BINARY_SOURCES": "clear;nuget,github,readwrite;default,readwrite"
       },
       "binaryDir": "${sourceDir}/.build",

@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2023 myst6re                                            //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -45,7 +45,7 @@ std::vector<CharaOneModelTextures> ff8_world_chara_one_parse_models(const uint8_
 			cur -= 4;
 			memcpy(&tim_offset, cur, 4);
 
-			if (int32_t(tim_offset) < 0) {
+			if (tim_offset == 0xFFFFFFFF) {
 				break;
 			}
 

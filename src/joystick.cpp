@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -147,7 +147,7 @@ bool Joystick::CheckConnection()
     }
 
     // set cooperative level
-    if (FAILED(gameController->SetCooperativeLevel(gameHwnd, ((ff8 && ff8_always_capture_input) ? DISCL_BACKGROUND : DISCL_FOREGROUND) | DISCL_NONEXCLUSIVE)))
+    if (FAILED(gameController->SetCooperativeLevel(gameHwnd, DISCL_FOREGROUND | DISCL_EXCLUSIVE)))
       return false;
 
     // set data format

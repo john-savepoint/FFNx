@@ -25,6 +25,9 @@
 #include "patch.h"
 #include "ff7/widescreen.h"
 #include "video/movies.h"
+#include "video/title_video.h"
+#include "ff7/char_portrait_anim.h"
+#include "ff7/title_progress.h"
 #include "redirect.h"
 #include "achievement.h"
 #include "utils.h"
@@ -412,4 +415,17 @@ void movie_init()
 	}
 
 	ffmpeg_movie_init();
+
+	// Initialize character portrait animations (for FF7 Japanese version)
+	if (version == VERSION_FF7_102_JP) {
+		FFNx::init_char_portrait_anims();
+
+		// Initialize title video if enabled
+		if (title_video_enable) {
+			const char* video_path = title_video_progress_based ?
+				FFNx::get_title_video_path(FFNx::TITLE_EARLY_GAME) :
+				title_video_path.c_str();
+			FFNx::g_title_video.load(video_path, title_video_loop);
+		}
+	}
 }

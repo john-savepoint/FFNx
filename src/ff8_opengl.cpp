@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -30,16 +30,12 @@
 #include "gl.h"
 #include "gamepad.h"
 #include "joystick.h"
-#include "sdl_gamepad.h"
 #include "gamehacks.h"
 #include "utils.h"
 #include "vibration.h"
 #include "ff8/file.h"
 #include "ff8/vram.h"
-#include "ff8/save_data.h"
 #include "metadata.h"
-#include "achievement.h"
-#include "widescreen.h"
 
 unsigned char texture_reload_fix1[] = {0x5B, 0x5F, 0x5E, 0x5D, 0x81, 0xC4, 0x10, 0x01, 0x00, 0x00};
 unsigned char texture_reload_fix2[] = {0x5F, 0x5E, 0x5D, 0x5B, 0x81, 0xC4, 0x8C, 0x00, 0x00, 0x00};
@@ -52,9 +48,6 @@ std::chrono::time_point<std::chrono::high_resolution_clock> intro_credits_music_
 constexpr int intro_credits_fade_frames = 33;
 constexpr int intro_credits_adjusted_frames = 438; // Instead of 374 in the Game
 constexpr int intro_credits_frames_between_music_start_and_first_image = 180;
-
-uint8_t *extended_memory = nullptr;
-uint16_t *field_current_poly = nullptr;
 
 int (*ff8_opcode_old_battle)(int);
 
@@ -311,13 +304,6 @@ void swirl_sub_56D390(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 	last_tex_header = tex_header;
 }
 
-void ff8_set_render_to_vram_current_screen_flag_before_battle()
-{
-	if(trace_all) ffnx_trace("%s\n", __func__);
-
-	// Disable software frame rendering to VRAM (by not doing anything here) because it is not needed anymore
-}
-
 void ff8_wm_set_render_to_vram_current_screen_flag_before_battle()
 {
 	if(trace_all) ffnx_trace("%s\n", __func__);
@@ -326,7 +312,7 @@ void ff8_wm_set_render_to_vram_current_screen_flag_before_battle()
 	// We lose the shadows, but keep the full battle transition effect
 	*ff8_externals.sub_blending_capability = false;
 
-	ff8_set_render_to_vram_current_screen_flag_before_battle();
+	// Disable software frame rendering to VRAM (by not doing anything here) because it is not needed anymore
 }
 
 void ff8_swirl_init(float a1)
@@ -341,12 +327,7 @@ void ff8_swirl_init(float a1)
 
 int ff8_init_gamepad()
 {
-	if (use_sdl_gamepad)
-	{
-		if (sdlgamepad.Refresh())
-			return TRUE;
-	}
-	else if (xinput_connected)
+	if (xinput_connected)
 	{
 		if (gamepad.Refresh())
 			return TRUE;
@@ -354,7 +335,7 @@ int ff8_init_gamepad()
 	else
 	{
 		if (joystick.Refresh())
-			return TRUE;
+    	return TRUE;
 	}
 
 	return FALSE;
@@ -404,70 +385,7 @@ LPDIJOYSTATE2 ff8_update_gamepad_status()
 
 	int lX = 0, lY = 0, rX = 0, rY = 0;
 
-	if (use_sdl_gamepad)
-	{
-		if (!sdlgamepad.Refresh() || !gamehacks.canInputBeProcessed())
-			return ff8_externals.dinput_gamepad_state;
-
-		if ((sdlgamepad.leftStickY > 0.5f) || sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_DPAD_UP))
-		{
-			ff8_externals.dinput_gamepad_state->lY = 0xFFFFFFFFFFFFFFFF;
-			ff8_externals.dinput_gamepad_state->rgdwPOV[0] = 0;
-		}
-		else if ((sdlgamepad.leftStickY < -0.5f) || sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_DPAD_DOWN))
-		{
-			ff8_externals.dinput_gamepad_state->lY = -0xFFFFFFFFFFFFFFFF;
-			ff8_externals.dinput_gamepad_state->rgdwPOV[0] = 18000;
-		}
-
-		if ((sdlgamepad.leftStickX < -0.5f) || sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_DPAD_LEFT))
-		{
-			ff8_externals.dinput_gamepad_state->lX = 0xFFFFFFFFFFFFFFFF;
-			ff8_externals.dinput_gamepad_state->rgdwPOV[0] = 27000;
-		}
-		else if ((sdlgamepad.leftStickX > 0.5f) || sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
-		{
-			ff8_externals.dinput_gamepad_state->lX = -0xFFFFFFFFFFFFFFFF;
-			ff8_externals.dinput_gamepad_state->rgdwPOV[0] = 9000;
-		}
-
-		lY = int(sdlgamepad.leftStickY * 0x80);
-		lX = int(sdlgamepad.leftStickX * 0x80);
-		rY = int(sdlgamepad.rightStickY * 0x80);
-		rX = int(sdlgamepad.rightStickX * 0x80);
-
-		if (sdlgamepad.rightStickY > 0.5f)
-			ff8_externals.dinput_gamepad_state->lRy = 0xFFFFFFFFFFFFFFFF;
-		else if (sdlgamepad.rightStickY < -0.5f)
-			ff8_externals.dinput_gamepad_state->lRy = -0xFFFFFFFFFFFFFFFF;
-
-		if (sdlgamepad.rightStickX > 0.5f)
-			ff8_externals.dinput_gamepad_state->lRx = -0xFFFFFFFFFFFFFFFF;
-		else if (sdlgamepad.rightStickX < -0.5f)
-			ff8_externals.dinput_gamepad_state->lRx = 0xFFFFFFFFFFFFFFFF;
-
-		ff8_externals.dinput_gamepad_state->lZ = 0;
-		ff8_externals.dinput_gamepad_state->lRz = 0;
-		ff8_externals.dinput_gamepad_state->rglSlider[0] = 0;
-		ff8_externals.dinput_gamepad_state->rglSlider[1] = 0;
-		ff8_externals.dinput_gamepad_state->rgdwPOV[1] = -1;
-		ff8_externals.dinput_gamepad_state->rgdwPOV[2] = -1;
-		ff8_externals.dinput_gamepad_state->rgdwPOV[3] = -1;
-		ff8_externals.dinput_gamepad_state->rgbButtons[0] = sdlgamepad.IsPressed(steam_stock_launcher ? SDL_GAMEPAD_BUTTON_SOUTH : SDL_GAMEPAD_BUTTON_WEST) ? 0x80 : 0; // Cross (Steam)/Square
-		ff8_externals.dinput_gamepad_state->rgbButtons[1] = sdlgamepad.IsPressed(steam_stock_launcher ? SDL_GAMEPAD_BUTTON_EAST : SDL_GAMEPAD_BUTTON_SOUTH) ? 0x80 : 0; // Circle (Steam)/Cross
-		ff8_externals.dinput_gamepad_state->rgbButtons[2] = sdlgamepad.IsPressed(steam_stock_launcher ? SDL_GAMEPAD_BUTTON_WEST : SDL_GAMEPAD_BUTTON_EAST) ? 0x80 : 0; // Square (Steam)/Circle
-		ff8_externals.dinput_gamepad_state->rgbButtons[3] = sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_NORTH) ? 0x80 : 0; // Triangle
-		ff8_externals.dinput_gamepad_state->rgbButtons[4] = sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? 0x80 : 0; // L1
-		ff8_externals.dinput_gamepad_state->rgbButtons[5] = sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? 0x80 : 0; // R1
-		ff8_externals.dinput_gamepad_state->rgbButtons[6] = (steam_stock_launcher ? sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_BACK) : sdlgamepad.leftTrigger > 0.85f) ? 0x80 : 0; // SELECT (Steam)/L2
-		ff8_externals.dinput_gamepad_state->rgbButtons[7] = (steam_stock_launcher ? sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_START) : sdlgamepad.rightTrigger > 0.85f) ? 0x80 : 0; // START (Steam)/R2
-		ff8_externals.dinput_gamepad_state->rgbButtons[8] = (steam_stock_launcher ? sdlgamepad.leftTrigger > 0.85f : sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_BACK)) ? 0x80 : 0; // L2 (Steam)/SELECT
-		ff8_externals.dinput_gamepad_state->rgbButtons[9] = (steam_stock_launcher ? sdlgamepad.rightTrigger > 0.85f : sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_START)) ? 0x80 : 0; // R2 (Steam)/START
-		ff8_externals.dinput_gamepad_state->rgbButtons[10] = sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_LEFT_STICK) ? 0x80 : 0; // L3
-		ff8_externals.dinput_gamepad_state->rgbButtons[11] = sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_RIGHT_STICK) ? 0x80 : 0; // R3
-		ff8_externals.dinput_gamepad_state->rgbButtons[12] = sdlgamepad.IsPressed(SDL_GAMEPAD_BUTTON_GUIDE) ? 0x80 : 0; // PS Button
-	}
-	else if (xinput_connected)
+	if (xinput_connected)
 	{
 		if (!gamepad.Refresh() || !gamehacks.canInputBeProcessed()) return 0;
 
@@ -515,16 +433,16 @@ LPDIJOYSTATE2 ff8_update_gamepad_status()
 		ff8_externals.dinput_gamepad_state->rgdwPOV[1] = -1;
 		ff8_externals.dinput_gamepad_state->rgdwPOV[2] = -1;
 		ff8_externals.dinput_gamepad_state->rgdwPOV[3] = -1;
-		ff8_externals.dinput_gamepad_state->rgbButtons[0] = gamepad.IsPressed(steam_stock_launcher ? XINPUT_GAMEPAD_A : XINPUT_GAMEPAD_X) ? 0x80 : 0; // Cross (Steam)/Square
-		ff8_externals.dinput_gamepad_state->rgbButtons[1] = gamepad.IsPressed(steam_stock_launcher ? XINPUT_GAMEPAD_B : XINPUT_GAMEPAD_A) ? 0x80 : 0; // Circle (Steam)/Cross
-		ff8_externals.dinput_gamepad_state->rgbButtons[2] = gamepad.IsPressed(steam_stock_launcher ? XINPUT_GAMEPAD_X : XINPUT_GAMEPAD_B) ? 0x80 : 0; // Square (Steam)/Circle
+		ff8_externals.dinput_gamepad_state->rgbButtons[0] = gamepad.IsPressed(steam_edition ? XINPUT_GAMEPAD_A : XINPUT_GAMEPAD_X) ? 0x80 : 0; // Cross (Steam)/Square
+		ff8_externals.dinput_gamepad_state->rgbButtons[1] = gamepad.IsPressed(steam_edition ? XINPUT_GAMEPAD_B : XINPUT_GAMEPAD_A) ? 0x80 : 0; // Circle (Steam)/Cross
+		ff8_externals.dinput_gamepad_state->rgbButtons[2] = gamepad.IsPressed(steam_edition ? XINPUT_GAMEPAD_X : XINPUT_GAMEPAD_B) ? 0x80 : 0; // Square (Steam)/Circle
 		ff8_externals.dinput_gamepad_state->rgbButtons[3] = gamepad.IsPressed(XINPUT_GAMEPAD_Y) ? 0x80 : 0; // Triangle
 		ff8_externals.dinput_gamepad_state->rgbButtons[4] = gamepad.IsPressed(XINPUT_GAMEPAD_LEFT_SHOULDER) ? 0x80 : 0; // L1
 		ff8_externals.dinput_gamepad_state->rgbButtons[5] = gamepad.IsPressed(XINPUT_GAMEPAD_RIGHT_SHOULDER) ? 0x80 : 0; // R1
-		ff8_externals.dinput_gamepad_state->rgbButtons[6] = (steam_stock_launcher ? gamepad.IsPressed(XINPUT_GAMEPAD_BACK) : gamepad.leftTrigger > 0.85f) ? 0x80 : 0; // SELECT (Steam)/L2
-		ff8_externals.dinput_gamepad_state->rgbButtons[7] = (steam_stock_launcher ? gamepad.IsPressed(XINPUT_GAMEPAD_START) : gamepad.rightTrigger > 0.85f) ? 0x80 : 0; // START (Steam)/R2
-		ff8_externals.dinput_gamepad_state->rgbButtons[8] = (steam_stock_launcher ? gamepad.leftTrigger > 0.85f : gamepad.IsPressed(XINPUT_GAMEPAD_BACK)) ? 0x80 : 0; // L2 (Steam)/SELECT
-		ff8_externals.dinput_gamepad_state->rgbButtons[9] = (steam_stock_launcher ? gamepad.rightTrigger > 0.85f : gamepad.IsPressed(XINPUT_GAMEPAD_START)) ? 0x80 : 0; // R2 (Steam)/START
+		ff8_externals.dinput_gamepad_state->rgbButtons[6] = (steam_edition ? gamepad.IsPressed(XINPUT_GAMEPAD_BACK) : gamepad.leftTrigger > 0.85f) ? 0x80 : 0; // SELECT (Steam)/L2
+		ff8_externals.dinput_gamepad_state->rgbButtons[7] = (steam_edition ? gamepad.IsPressed(XINPUT_GAMEPAD_START) : gamepad.rightTrigger > 0.85f) ? 0x80 : 0; // START (Steam)/R2
+		ff8_externals.dinput_gamepad_state->rgbButtons[8] = (steam_edition ? gamepad.leftTrigger > 0.85f : gamepad.IsPressed(XINPUT_GAMEPAD_BACK)) ? 0x80 : 0; // L2 (Steam)/SELECT
+		ff8_externals.dinput_gamepad_state->rgbButtons[9] = (steam_edition ? gamepad.rightTrigger > 0.85f : gamepad.IsPressed(XINPUT_GAMEPAD_START)) ? 0x80 : 0; // R2 (Steam)/START
 		ff8_externals.dinput_gamepad_state->rgbButtons[10] = gamepad.IsPressed(XINPUT_GAMEPAD_LEFT_THUMB) ? 0x80 : 0; // L3
 		ff8_externals.dinput_gamepad_state->rgbButtons[11] = gamepad.IsPressed(XINPUT_GAMEPAD_RIGHT_THUMB) ? 0x80 : 0; // R3
 		ff8_externals.dinput_gamepad_state->rgbButtons[12] = gamepad.IsPressed(0x400) ? 0x80 : 0; // PS Button
@@ -625,7 +543,7 @@ LPDIJOYSTATE2 ff8_update_gamepad_status()
 
 int ff8_get_input_device_capabilities_number_of_buttons(int a1)
 {
-	return (use_sdl_gamepad || xinput_connected) ? 10 : std::min<DWORD>(joystick.GetCaps()->dwButtons, 10);
+	return xinput_connected ? 10 : std::min<DWORD>(joystick.GetCaps()->dwButtons, 10);
 }
 
 int ff8_draw_gamepad_icon_or_keyboard_key(int a1, ff8_draw_menu_sprite_texture_infos *draw_infos, int icon_id, uint16_t x, uint16_t y)
@@ -648,11 +566,11 @@ int ff8_draw_gamepad_icon_or_keyboard_key(int a1, ff8_draw_menu_sprite_texture_i
 			switch (rgbButton)
 			{
 				case 0: // Cross (Steam)/Square
-					return steam_stock_launcher ? 134 : 135;
+					return steam_edition ? 134 : 135;
 				case 1: // Circle (Steam)/Cross
-					return steam_stock_launcher ? 133 : 134;
+					return steam_edition ? 133 : 134;
 				case 2: // Square (Steam)/Circle
-					return steam_stock_launcher ? 135 : 133;
+					return steam_edition ? 135 : 133;
 				case 3: // Triangle
 					return 132;
 				case 4: // L1
@@ -660,13 +578,13 @@ int ff8_draw_gamepad_icon_or_keyboard_key(int a1, ff8_draw_menu_sprite_texture_i
 				case 5: // R1
 					return 131;
 				case 6: // SELECT (Steam)/L2
-					return steam_stock_launcher ? 136 : 128;
+					return steam_edition ? 136 : 128;
 				case 7: // START (Steam)/R2
-					return steam_stock_launcher ? 139 : 129;
+					return steam_edition ? 139 : 129;
 				case 8: // L2 (Steam)/SELECT
-					return steam_stock_launcher ? 128 : 136;
+					return steam_edition ? 128 : 136;
 				case 9: // R2 (Steam)/START
-					return steam_stock_launcher ? 129 : 139;
+					return steam_edition ? 129 : 139;
 			}
 		}
 
@@ -697,9 +615,8 @@ unsigned int *ff8_draw_icon_get_icon_sp1_infos(int icon_id, int &states_count)
 ff8_draw_menu_sprite_texture_infos *ff8_draw_icon_or_key(
 	int a1, ff8_draw_menu_sprite_texture_infos *draw_infos,
 	int icon_id, uint16_t x, uint16_t y, int a6, int field10_modifier = 0,
-	bool no_a6_mask = false,
-	bool override_field4_8_with_a6 = false,
-	bool yfix = false
+	bool noA6Mask = false,
+	bool override_field4_8_with_a6 = false
 ) {
 	icon_id = ff8_draw_gamepad_icon_or_keyboard_key(a1, draw_infos, icon_id, x, y);
 	if (icon_id < 0)
@@ -726,19 +643,14 @@ ff8_draw_menu_sprite_texture_infos *ff8_draw_icon_or_key(
 		}
 		else
 		{
-			draw_infos->field_8 = no_a6_mask ? a6 | (((sp1_section_data[0] >> 26) & 2) << 24) : (a6 & 0x3FFFFFF) | (((sp1_section_data[0] >> 26) & 2 | 0x64) << 24);
+			draw_infos->field_8 = noA6Mask ? a6 | (((sp1_section_data[0] >> 26) & 2) << 24) : (a6 & 0x3FFFFFF) | (((sp1_section_data[0] >> 26) & 2 | 0x64) << 24);
 			draw_infos->field_4 = (sp1_section_data[0] >> 25) & 0x60 | 0xE100041E;
 		}
 		draw_infos->field_14 = sp1_section_data[1] & 0xFF00FF;
 		draw_infos->x_related = x + (int16_t(sp1_section_data[1]) >> 8);
-		draw_infos->y_related = y + (int32_t(sp1_section_data[1]) >> 24);
-		if (yfix && *ff8_externals.battle_boost_cross_icon_display_1D76604) {
-			*((uint8_t *)draw_infos + 11) |= 2u;
-		}
+		draw_infos->y_related = y + (sp1_section_data[1] >> 24);
 		((void(*)(int, ff8_draw_menu_sprite_texture_infos*))ff8_externals.sub_49BB30)(a1, draw_infos);
-		if (!no_a6_mask) {
-			draw_infos += 1;
-		}
+		draw_infos += 1;
 		sp1_section_data += 2;
 	}
 
@@ -767,7 +679,7 @@ ff8_draw_menu_sprite_texture_infos *ff8_draw_icon_or_key4(int a1, ff8_draw_menu_
 
 ff8_draw_menu_sprite_texture_infos *ff8_draw_icon_or_key5(int a1, ff8_draw_menu_sprite_texture_infos *draw_infos, int icon_id, uint16_t x, uint16_t y, int a6, int a7)
 {
-	return ff8_draw_icon_or_key(a1, draw_infos, icon_id, x, y, a6, a7, true, false, true);
+	return ff8_draw_icon_or_key(a1, draw_infos, icon_id, x, y, a6, a7, true);
 }
 
 ff8_draw_menu_sprite_texture_infos_short *ff8_draw_icon_or_key6(int a1, ff8_draw_menu_sprite_texture_infos_short *draw_infos, int icon_id, uint16_t x, uint16_t y, int a6, int a7) {
@@ -802,35 +714,9 @@ ff8_draw_menu_sprite_texture_infos_short *ff8_draw_icon_or_key6(int a1, ff8_draw
 	return draw_infos;
 }
 
-int ff8_get_key_state(WPARAM dinput_scan_code)
-{
-	int virt_key = 0;
-
-	if (!*ff8_externals.keyboard_state || dinput_scan_code > 0xFF) {
-		return 0; // What are you doing, William?
-	}
-
-	switch (dinput_scan_code) {
-		// Force real Q key, instead of directinput's positional DIK_Q (which is A in Azerty keyboards)
-		case DIK_Q:
-			virt_key = 'Q';
-			break;
-		case DIK_R:
-			virt_key = 'R';
-			break;
-		// Keep the old implementation to prevent performance issues with using GetKeyState on each frame
-		default: // DIK_LCONTROL, DIK_RCONTROL, and everything else
-			return (*ff8_externals.keyboard_state)[dinput_scan_code];
-	}
-
-	return (GetKeyState(virt_key) & 0x8000) != 0;
-}
-
-int is_q_pressed = 0;
-
 int ff8_is_window_active()
 {
-	if (gameHwnd == GetActiveWindow() || ff8_always_capture_input)
+	if (gameHwnd == GetActiveWindow())
 	{
 		ff8_externals.engine_eval_keyboard_gamepad_input();
 		ff8_externals.has_keyboard_gamepad_input();
@@ -842,24 +728,6 @@ int ff8_is_window_active()
 
 			// End simulation right here before we press this button by mistake in other windows
 			simulate_OK_button = false;
-		}
-
-		// Allow to quit the game anywhere
-		if ((ff8_get_key_state(DIK_LCONTROL) || ff8_get_key_state(DIK_RCONTROL)) && ff8_get_key_state(DIK_Q))
-		{
-			if (is_q_pressed > 20)
-			{
-				((ff8_game_obj *)common_externals.get_game_object())->do_quit = 1;
-				is_q_pressed = 0;
-			}
-			else
-			{
-				is_q_pressed += 1;
-			}
-		}
-		else
-		{
-			is_q_pressed = 0;
 		}
 	}
 
@@ -884,7 +752,7 @@ bool ff8_skip_movies()
 
 			// Force last frame for field scripts
 			ff8_externals.movie_object->movie_current_frame = 0xFFFF;
-			(*ff8_externals.savemap_field)->current_frame = 0xFFFF;
+			(*ff8_externals.savemap)[80 / 4] = 0xFFFF;
 			ff8_externals.sub_5304B0();
 		}
 		else if (mode == MODE_CREDITS)
@@ -1075,404 +943,6 @@ int ff8_create_save_file_chocobo_world(int unused, int data_source, int offset, 
 	return ret;
 }
 
-int ff8_cardgame_postgame_func_534BC0()
-{
-	g_FF8SteamAchievements->unlockPlayTripleTriadAchievement();
-	return ff8_externals.cardgame_func_534BC0();
-}
-
-void ff8_cardgame_enter_hook_sub_460B60(float a1)
-{
-	g_FF8SteamAchievements->initOwnedTripleTriadRareCards(ff8_externals.savemap->triple_triad);
-	((void(*)(float))ff8_externals.sub_460B60)(a1);
-}
-
-void ff8_cardgame_exit_hook_sub_4972A0()
-{
-	g_FF8SteamAchievements->unlockLoserTripleTriadAchievement(ff8_externals.savemap->triple_triad);
-	((void(*)())ff8_externals.sub_4972A0)();
-}
-
-int ff8_cardgame_add_card_to_squall_original(int card_idx)
-{
-	// update known cards
-	if (card_idx >= 77)
-		ff8_externals.savemap->triple_triad.cards_rare[(card_idx - 77) / 8] |= 1 << ((card_idx - 77) % 8);
-	else
-		ff8_externals.savemap->triple_triad.cards[card_idx] |= 0x80u;
-
-	// add card to squall
-	if (card_idx >= 77)
-	{
-		ff8_externals.savemap->triple_triad.card_locations[card_idx - 77] = 240; // SQUALL
-		return 0;
-	}
-	else if ((ff8_externals.savemap->triple_triad.cards[card_idx] & 0x7Fu) >= 100)
-	{
-		return -1;
-	}
-	else
-	{
-		++ff8_externals.savemap->triple_triad.cards[card_idx];
-		return 0;
-	}
-}
-
-int ff8_cardgame_add_card_to_squall(int card_idx)
-{
-	int ret = ff8_cardgame_add_card_to_squall_original(card_idx);
-	g_FF8SteamAchievements->unlockCollectorTripleTriadAchievement(ff8_externals.savemap->triple_triad);
-	return ret;
-}
-
-int ff8_cardgame_update_card_with_location_original(int card_idx, int card_location)
-{
-	if ( card_idx >= 77 )
-	{
-		ff8_externals.savemap->triple_triad.card_locations[card_idx - 77] = card_location;
-		return 0;
-	}
-	else
-	{
-		byte card_value = ff8_externals.savemap->triple_triad.cards[card_idx];
-		if ( card_location == 240 ) // SQUALL location
-		{
-			if ((card_value & 0x7Fu) < 100)
-			{
-				ff8_externals.savemap->triple_triad.cards[card_idx] = card_value + 1;
-				return 0;
-			}
-		}
-		else if ((card_value & 0x7F) != 0)
-		{
-			ff8_externals.savemap->triple_triad.cards[card_idx] = card_value - 1;
-			return 0;
-		}
-		return -1;
-	}
-}
-
-int ff8_cardgame_update_card_with_location(int card_idx, int card_location)
-{
-	int ret = ff8_cardgame_update_card_with_location_original(card_idx, card_location);
-	if (card_location == 240) // Squall location
-	{
-		g_FF8SteamAchievements->unlockCollectorTripleTriadAchievement(ff8_externals.savemap->triple_triad);
-	}
-	return ret;
-}
-
-int ff8_cardgame_sub_535D00(void* tt_data)
-{
-	uint16_t prev_card_wins = ff8_externals.savemap->triple_triad.victory_count;
-	int ret = ff8_externals.cardgame_sub_535D00(tt_data);
-	if (ff8_externals.savemap->triple_triad.victory_count > prev_card_wins)
-	{
-		g_FF8SteamAchievements->increaseCardWinsAndUnlockProfessionalAchievement();
-	}
-	return ret;
-}
-
-int ff8_field_opcode_CARDGAME(int field_data)
-{
-	int ret = ff8_externals.opcode_cardgame(field_data);
-	if (ret == 2) // cardgame exited
-	{
-		uint8_t deck_id = *ff8_externals.cardgame_deck_id_1DCD7AD;
-		int cardgame_result = *(int*)(field_data + 324);
-		if (deck_id == 202 && cardgame_result == 0) // Won against quistis
-		{
-			g_FF8SteamAchievements->unlockCardClubMasterAchievement(ff8_externals.savemap->field);
-		}
-	}
-	return ret;
-}
-
-void ff8_enable_gf_sub_47E480(int gf_idx)
-{
-	ff8_externals.savemap->gfs[gf_idx].exists |= 1u;
-	// NOTE: This function for Diablos is called when starting his battle
-	if (gf_idx != SteamAchievementsFF8::DIABLOS_GF_IDX) {
-		g_FF8SteamAchievements->unlockGuardianForceAchievement(gf_idx);
-	}
-}
-
-void ff8_update_seed_exp_4C30E0(int seed_lvl)
-{
-	ff8_externals.update_seed_exp_4C30E0(seed_lvl);
-	g_FF8SteamAchievements->unlockTopSeedRankAchievement(ff8_externals.savemap->field_header.seedExp);
-}
-
-int ff8_field_opcode_POPM_W(void* field_data, int memory_offset)
-{
-	int ret = ff8_externals.opcode_popm_w(field_data, memory_offset);
-	if (memory_offset == 16) // seed exp
-	{
-		g_FF8SteamAchievements->unlockTopSeedRankAchievement(ff8_externals.savemap->field_header.seedExp);
-	}
-	if (memory_offset == 256 && ff8_externals.savemap->field.game_moment == 3000) // Ragnarok found
-	{
-		g_FF8SteamAchievements->unlockRagnarokAchievement();
-	}
-	return ret;
-}
-
-int ff8_field_opcode_POPM_B(void* field_data, int memory_offset)
-{
-	int ret = ff8_externals.opcode_popm_b(field_data, memory_offset);
-	if (memory_offset == 0x130 || memory_offset == 0x131) // timber maniacs offset
-	{
-		g_FF8SteamAchievements->unlockTimberManiacsAchievement(ff8_externals.savemap->field.timber_maniacs);
-	}
-	return ret;
-}
-
-int ff8_field_opcode_ADDSEEDLEVEL(void* field_data)
-{
-	int ret = ff8_externals.opcode_addseedlevel(field_data);
-	g_FF8SteamAchievements->unlockTopSeedRankAchievement(ff8_externals.savemap->field_header.seedExp);
-	return ret;
-}
-
-void ff8_field_update_seed_level()
-{
-	((void(*)())ff8_externals.field_update_seed_level_52B140)();
-	g_FF8SteamAchievements->unlockTopSeedRankAchievement(ff8_externals.savemap->field_header.seedExp);
-	g_FF8SteamAchievements->unlockMaxGilAchievement(ff8_externals.savemap->gil);
-	g_FF8SteamAchievements->unlockFirstSalaryAchievement();
-}
-
-void ff8_worldmap_update_seed_level()
-{
-	((void(*)())ff8_externals.worldmap_update_seed_level_651C10)();
-	g_FF8SteamAchievements->unlockTopSeedRankAchievement(ff8_externals.savemap->field_header.seedExp);
-	g_FF8SteamAchievements->unlockMaxGilAchievement(ff8_externals.savemap->gil);
-	g_FF8SteamAchievements->unlockFirstSalaryAchievement();
-}
-
-// Replacing a specific call that is called when player remodel weapon just before assigning the new
-// weapon id to the character
-int ff8_menu_junkshop_get_char_id_hook_4ABC40(int chars_available_bitmap, int char_idx)
-{
-	int char_id = ff8_externals.sub_4ABC40(chars_available_bitmap, char_idx);
-	g_FF8SteamAchievements->initPreviousWeaponIdBeforeUpgrade(char_id, ff8_externals.savemap->chars[char_id].weapon_id);
-	return char_id;
-}
-
-// Replacing a specific call that is called when player remodel weapon just after assigning the new
-// weapon id to the character
-int ff8_menu_junkshop_hook_4EA770(int a1, uint32_t a2)
-{
-	int ret = ff8_externals.sub_4EA770(a1, a2);
-	g_FF8SteamAchievements->unlockUpgradeWeaponAchievement(*ff8_externals.savemap);
-	return ret;
-}
-
-// Replacing a call done before computing max HP for a character in order to get the
-// index "party_char_id"
-void ff8_hook_sub_4954B0(int party_char_id)
-{
-	ff8_externals.sub_4954B0(party_char_id);
-	g_FF8SteamAchievements->initStatCharIdUnderStatCompute(party_char_id);
-}
-
-int ff8_compute_char_max_hp_496310(int multiplier, int char_id)
-{
-	int max_hp_mul = ff8_externals.compute_char_max_hp_496310(multiplier, char_id);
-	byte stat_char_id = g_FF8SteamAchievements->getStatCharIdUnderStatCompute();
-	if (stat_char_id != 0xFFu) {
-		int max_hp = ff8_externals.char_comp_stats_1CFF000[stat_char_id].unk3[14] * max_hp_mul / 100;
-		g_FF8SteamAchievements->unlockMaxHpAchievement(max_hp);
-	}
-	return max_hp_mul;
-}
-
-int ff8_field_opcode_ADDGIL(void* field_data)
-{
-	int ret = ff8_externals.opcode_addgil(field_data);
-	g_FF8SteamAchievements->unlockMaxGilAchievement(ff8_externals.savemap->gil);
-	return ret;
-}
-
-void ff8_menu_shop_sub_4EBE40(byte* menu_data)
-{
-	uint16_t menu_op = *(uint16_t*)(menu_data + 16);
-	bool is_menu_sell_buy = ((*ff8_externals.menu_data_1D76A9C) & 0x40) != 0;
-	((void(*)(byte*))ff8_externals.menu_shop_sub_4EBE40)(menu_data);
-	byte is_sell = *(byte*)(menu_data + 70);
-	if (menu_op == 12 && is_menu_sell_buy && is_sell)
-	{
-		uint32_t gil = *(uint32_t*)(menu_data + 40);
-		g_FF8SteamAchievements->unlockMaxGilAchievement(gil);
-	}
-}
-
-int ff8_battle_menu_add_exp_and_bonus_496CB0(int party_char_id, uint16_t exp)
-{
-	byte char_id = *(ff8_externals.character_data_1CFE74C + party_char_id);
-	int ret = ff8_externals.battle_menu_add_exp_and_stat_bonus_496CB0(party_char_id, exp);
-	if (char_id != 0xFF) {
-		int level = ff8_externals.get_char_level_4961D0(ff8_externals.savemap->chars[char_id].exp, char_id);
-		g_FF8SteamAchievements->unlockTopLevelAchievement(level);
-	}
-	if (*ff8_externals.global_battle_encounter_id_1CFF6E0 == SteamAchievementsFF8::DIABLOS_ENCOUNTER_ID) {
-		g_FF8SteamAchievements->unlockGuardianForceAchievement(SteamAchievementsFF8::DIABLOS_GF_IDX);
-	}
-	return ret;
-}
-
-// Replace a function that is called before increasing the kills of a character
-void ff8_battle_after_enemy_kill_sub_494AF0(int party_char_id, int monster_id, int current_actor_second_byte, int a2)
-{
-	ff8_externals.battle_sub_494AF0(party_char_id, monster_id, current_actor_second_byte, a2);
-	g_FF8SteamAchievements->increaseKillsAndTryUnlockAchievement();
-}
-
-int ff8_opcode_drawpoint_sub_4A0850(int a1, int draw_magic_count)
-{
-	int ret = ff8_externals.opcode_drawpoint_sub_4A0850(a1, draw_magic_count);
-	g_FF8SteamAchievements->increaseMagicDrawsAndTryUnlockAchievement();
-	return ret;
-}
-
-void ff8_set_drawpoint_state_52D190(uint8_t drawpoint_id, char value)
-{
-	ff8_externals.set_drawpoint_state_521D90(drawpoint_id, value);
-	g_FF8SteamAchievements->increaseMagicDrawsAndTryUnlockAchievement();
-}
-
-int ff8_battle_get_magic_draw_amount_48FD20(int actor_idx, int monster_id, int magic_id)
-{
-	int ret = ff8_externals.battle_get_draw_magic_amount_48FD20(actor_idx, monster_id, magic_id);
-	g_FF8SteamAchievements->increaseMagicStockAndTryUnlockAchievement();
-	return ret;
-}
-
-char ff8_menu_use_item_sub_4F81F0(int menu_data_pointer)
-{
-	uint16_t mode = *(uint16_t*)(menu_data_pointer + 16);
-	char ret = ff8_externals.menu_use_items_sub_4F81F0(menu_data_pointer);
-	if (mode == 111) // Show quistis blue magic unlocked message
-	{
-		g_FF8SteamAchievements->unlockQuistisLimitBreaksAchievement(ff8_externals.savemap->lb.quistis_lb);
-	}
-	return ret;
-}
-
-int ff8_play_sfx_at_unlock_rinoa_limit_break(int a1, int a2, uint32_t a3, uint32_t a4)
-{
-	int ret = ((int(*)(int, int, uint32_t, uint32_t))ff8_externals.sfx_play_to_current_playing_channel)(a1, a2, a3, a4);
-	g_FF8SteamAchievements->unlockRinoaLimitBreaksAchievement(ff8_externals.savemap->lb.angelo_completed_lb);
-	return ret;
-}
-
-void ff8_obtain_proof_of_omega(int tut_info_id)
-{
-	ff8_externals.update_tutorial_info_4AD170(tut_info_id);
-	g_FF8SteamAchievements->unlockOmegaDestroyedAchievement();
-}
-
-void ff8_battle_after_set_result_to_won_sub_494D40()
-{
-	ff8_externals.battle_sub_494D40();
-	if (*ff8_externals.global_battle_encounter_id_1CFF6E0 == 750 && *ff8_externals.battle_result_state_1CFF6E7 == 4) { // Won Pupu encounter
-		g_FF8SteamAchievements->unlockPupuQuestAchievement(ff8_externals.savemap->worldmap.pupu_quest);
-	}
-}
-
-int ff8_menu_choco_add_item_to_player_47ED00(int item_id, char quantity)
-{
-	int ret = ff8_externals.add_item_to_player_sub_47ED00(item_id, quantity);
-	g_FF8SteamAchievements->unlockChocoLootAchievement();
-	return ret;
-}
-
-void ff8_menu_chocobo_sub_4FF8F0()
-{
-	ff8_externals.menu_chocobo_sub_4FF8F0();
-	g_FF8SteamAchievements->unlockTopLevelBokoAchievement(ff8_externals.savemap->choco_world.level);
-}
-
-int ff8_world_sub_54D7E0(WORD* a1)
-{
-	bool obel_quest_was_finished = ff8_externals.savemap->worldmap.obel_quest[2] & 1;
-	int ret = ((int(*)(WORD*))ff8_externals.sub_54D7E0)(a1);
-	if (!obel_quest_was_finished && (ff8_externals.savemap->worldmap.obel_quest[2] & 1))
-	{
-		g_FF8SteamAchievements->unlockObelLakeQuestAchievement();
-	}
-	return ret;
-}
-
-// NOTE:Re-implementation of the function to add item to player items (sub_47ED00)
-// because the original function in FF8 exe code has been completely replaced
-int ff8_add_item_to_player(int item_id, char quantity)
-{
-	if (!item_id) {
-		return 0;
-	}
-
-	savemap_ff8_item *items = ff8_externals.savemap->items.items;
-	for (int i = 0; i < 198; ++i)
-	{
-		if (items[i].item_id == item_id )
-		{
-			items[i].item_quantity += quantity;
-			if (items[i].item_quantity < 100) {
-				return 0;
-			} else {
-				items[i].item_quantity = 100;
-				return 1;
-			}
-		}
-	}
-
-	int open_slot = 0;
-	for (open_slot = 0; open_slot < 198 && items[open_slot].item_id; open_slot++);
-	if (open_slot >= 198) {
-		return 1;
-	}
-	items[open_slot].item_id = item_id;
-	items[open_slot].item_quantity += quantity;
-	if (items[open_slot].item_quantity < 100) {
-		return 0;
-	} else {
-		items[open_slot].item_quantity = 100;
-		return 1;
-	}
-}
-
-int ff8_add_item_to_player_wrapper(int item_id, char quantity)
-{
-	int ret = ff8_add_item_to_player(item_id, quantity);
-	if (SteamAchievementsFF8::itemIsMagazine(item_id)) {
-		g_FF8SteamAchievements->unlockMagazineAddictAchievement(ff8_externals.savemap->items);
-	}
-	return ret;
-}
-
-void ff8_menu_shop_update_gil_and_items(int gil)
-{
-	bool bought_magazine = false;
-	savemap_ff8_item *items = ff8_externals.savemap->items.items;
-	for (int i = 0; i < 198; ++i)
-	{
-		if (SteamAchievementsFF8::itemIsMagazine(items[i].item_id)
-			&& ff8_externals.menu_shop_staged_items_1D8D058[items[i].item_id] > items[i].item_quantity)
-		{
-			bought_magazine = true;
-			break;
-		}
-	}
-
-	ff8_externals.menu_shop_update_gil_and_items_4EB9F0(gil);
-
-	if (bought_magazine)
-	{
-		g_FF8SteamAchievements->unlockMagazineAddictAchievement(ff8_externals.savemap->items);
-	}
-}
-
 int ff8_limit_fps()
 {
 	static time_t last_gametime;
@@ -1524,68 +994,6 @@ int ff8_limit_fps()
 	return 0;
 }
 
-void* ff8_engine_set_wide_viewport(int x, int y, int w, int h)
-{
-	*ff8_externals.current_viewport_x_dword_1A7764C = wide_viewport_x;
-	*ff8_externals.current_viewport_y_dword_1A77648 = wide_viewport_y;
-	*ff8_externals.current_viewport_width_dword_1A77654 = wide_viewport_width;
-	*ff8_externals.current_viewport_height_dword_1A77650 = wide_viewport_height;
-
-	*ff8_externals.ssigpu_viewport_x_dword_1CA89D8 = wide_viewport_x;
-	*ff8_externals.ssigpu_viewport_y_dword_1CA89DC = wide_viewport_y;
-	*ff8_externals.ssigpu_viewport_width_dword_B7CBF8 = wide_viewport_width;
-	*ff8_externals.ssigpu_viewport_height_dword_B7CBFC = wide_viewport_height;
-
-	if ( w >= 540 || h >= 380 )
-	{
-		if ( *ff8_externals.dword_B7CE28 != -1 )
-			*ff8_externals.flag_d3d_renderer_related_dword_1CCFD94 = *ff8_externals.dword_B7CE28;
-	}
-	else
-	{
-		int tmp = *ff8_externals.flag_d3d_renderer_related_dword_1CCFD94;
-		*ff8_externals.flag_d3d_renderer_related_dword_1CCFD94 = 0;
-		*ff8_externals.dword_B7CE28 = tmp;
-	}
-
-	return ff8_externals.engine_setviewport_sub_41E070(wide_viewport_x, wide_viewport_y, wide_viewport_width, wide_viewport_height, common_externals.get_game_object());
-}
-
-void ff8_widescreen_hook_init() {
-	// Viewport fixes
-	replace_function(ff8_externals.engine_setviewport_sub_45B4C0, ff8_engine_set_wide_viewport);
-
-	// Menu
-	ff8_externals.menu_viewport[2].scale_x = 2.0;
-	ff8_externals.menu_viewport[2].offset_x = -64.0;
-}
-
-void ff8_field_3d_models_push_rects(int a1, uint16_t *a2, int a3, int a4)
-{
-	field_current_poly = a2;
-
-	ff8_externals.field_push_mch_vertices_rect_sub_533A90(a1, a2, a3, a4);
-
-	field_current_poly = nullptr;
-}
-
-void ff8_field_calc_triangle_condition()
-{
-	ff8_externals.calc_model_triangle_condition_sub_45EE10();
-
-	// The current rect is refused, but this is a rect, with 4 vertices, and only one triangle was checked here (field_current_poly[0], field_current_poly[1], field_current_poly[2])
-	if (uint32_t(*ff8_externals.calc_model_poly_condition_result_dword_1CA8A70) >= 1500000) {
-		// Retry with another triangle (field_current_poly[1], field_current_poly[2], field_current_poly[3])
-		ff8_externals.set_current_triangle_sub_45E160(ff8_externals.dword_1DC6314[field_current_poly[1]], ff8_externals.dword_1DC6314[field_current_poly[2]], ff8_externals.dword_1DC6314[field_current_poly[3]]);
-		ff8_externals.calc_model_triangle_condition_sub_45EE10();
-
-		// With this triangle, a negative result is OK, so we override the result for the game to accept it
-		*ff8_externals.calc_model_poly_condition_result_dword_1CA8A70 = *ff8_externals.calc_model_poly_condition_result_dword_1CA8A70 > -1500000 && *ff8_externals.calc_model_poly_condition_result_dword_1CA8A70 <= 0 ? 1 : 1500001;
-	}
-
-	field_current_poly += 14;
-}
-
 void ff8_init_hooks(struct game_obj *_game_object)
 {
 	struct ff8_game_obj *game_object = (struct ff8_game_obj *)_game_object;
@@ -1600,11 +1008,9 @@ void ff8_init_hooks(struct game_obj *_game_object)
 		ff8_externals.show_vram_window();
 
 	replace_function(ff8_externals.engine_eval_process_input, ff8_is_window_active);
-	replace_function(ff8_externals.get_key_state, ff8_get_key_state);
 
 	replace_function(ff8_externals.swirl_sub_56D390, swirl_sub_56D390);
-	replace_call(ff8_externals.worldmap_with_fog_sub_53FAC0 + (FF8_US_VERSION ? 0xB3C: (JP_VERSION ? 0xB24 : 0xB2F)), ff8_wm_set_render_to_vram_current_screen_flag_before_battle);
-	replace_function(ff8_externals.set_render_to_vram_current_screen_flag_before_battle, ff8_set_render_to_vram_current_screen_flag_before_battle);
+	replace_call(ff8_externals.worldmap_with_fog_sub_53FAC0 + (FF8_US_VERSION ? 0xB3C: 0xB2F), ff8_wm_set_render_to_vram_current_screen_flag_before_battle);
 	replace_call(ff8_externals.swirl_enter + 0x9, ff8_swirl_init);
 
 	replace_function(common_externals.destroy_tex_header, ff8_destroy_tex_header);
@@ -1612,9 +1018,6 @@ void ff8_init_hooks(struct game_obj *_game_object)
 
 	replace_function(common_externals.open_file, ff8_open_file);
 	replace_call(uint32_t(ff8_externals.fs_archive_search_filename) + 0x10, ff8_fs_archive_search_filename2);
-	replace_call(ff8_externals.moriya_filesystem_open + 0x126, ff8_fs_archive_sub_archive_get_filename);
-	// Open temp.fs/temp.fl/temp.fi
-	replace_call(ff8_externals.moriya_filesystem_open + 0x705, ff8_fs_archive_open_temp);
 	// Search file in temp.fs archive (field)
 	replace_call(ff8_externals.moriya_filesystem_open + 0x776, ff8_fs_archive_search_filename_sub_archive);
 	// Search file in FS archive
@@ -1702,9 +1105,9 @@ void ff8_init_hooks(struct game_obj *_game_object)
 	{
 		replace_call(ff8_externals.main_menu_controller + (JP_VERSION ? 0x1004 : 0xF8D), ff8_create_save_file);
 		replace_call(ff8_externals.menu_chocobo_world_controller + 0x9F6, ff8_create_save_file_chocobo_world);
-		replace_call(ff8_externals.menu_chocobo_world_controller + (JP_VERSION ? 0xF8D : 0xFA3), ff8_create_save_file_chocobo_world);
-		replace_call(ff8_externals.menu_chocobo_world_controller + (JP_VERSION ? 0x11A5 : 0x11BB), ff8_create_save_file_chocobo_world);
-		replace_call(ff8_externals.menu_chocobo_world_controller + (JP_VERSION ? 0x13D6 : 0x13EC), ff8_create_save_file_chocobo_world);
+		replace_call(ff8_externals.menu_chocobo_world_controller + 0xFA3, ff8_create_save_file_chocobo_world);
+		replace_call(ff8_externals.menu_chocobo_world_controller + 0x11BB, ff8_create_save_file_chocobo_world);
+		replace_call(ff8_externals.menu_chocobo_world_controller + 0x13EC, ff8_create_save_file_chocobo_world);
 	}
 
 	// don't set system speaker config to stereo
@@ -1745,7 +1148,7 @@ void ff8_init_hooks(struct game_obj *_game_object)
 	replace_function(ff8_externals.dinput_update_gamepad_status, ff8_update_gamepad_status);
 	replace_function(ff8_externals.dinput_get_input_device_capabilities_number_of_buttons, ff8_get_input_device_capabilities_number_of_buttons);
 
-	if (steam_stock_launcher)
+	if (steam_edition)
 	{
 		// Create ff8input.cfg with the same default values than the FF8_Launcher
 
@@ -1858,124 +1261,6 @@ void ff8_init_hooks(struct game_obj *_game_object)
 	// All possible message and ask windows
 	ff8_opcode_old_battle = (int (*)(int))ff8_externals.opcode_battle;
 	patch_code_dword((uint32_t)&common_externals.execute_opcode_table[0x69], (DWORD)&ff8_opcode_battle);
-
-	//###############################
-	// steam achievement unlock calls
-	//###############################
-	if(enable_steam_achievements)
-	{
-		// triple triad
-		patch_code_dword((uint32_t)&ff8_externals.cardgame_funcs[4], (uint32_t)&ff8_cardgame_postgame_func_534BC0);
-		replace_call(ff8_externals.sub_534640 + 0x8D, (void*)ff8_cardgame_enter_hook_sub_460B60);
-		replace_call(ff8_externals.sub_534640 + 0x51, (void*)ff8_cardgame_exit_hook_sub_4972A0);
-		replace_function(ff8_externals.cardgame_add_card_to_squall_534840, (void*)ff8_cardgame_add_card_to_squall);
-		replace_function(ff8_externals.cardgame_update_card_with_location_5347F0, (void*)ff8_cardgame_update_card_with_location);
-		patch_code_dword(ff8_externals.cargame_func_535C90 + 0x19, (uint32_t)&ff8_cardgame_sub_535D00);
-
-		// cc master
-		patch_code_dword((uint32_t)&common_externals.execute_opcode_table[0x13A], (uint32_t)&ff8_field_opcode_CARDGAME);
-
-		// guardian forces
-		replace_function(ff8_externals.enable_gf_sub_47E480, (void*)ff8_enable_gf_sub_47E480);
-
-		// seed rank A (also max GIL)
-		replace_call(ff8_externals.menu_sub_4D4D30 + (JP_VERSION ? 0x929 : 0x928), (void*)ff8_update_seed_exp_4C30E0);
-		patch_code_dword((uint32_t)&common_externals.execute_opcode_table[0x0D], (uint32_t)&ff8_field_opcode_POPM_W);
-		patch_code_dword((uint32_t)&common_externals.execute_opcode_table[0x153], (uint32_t)&ff8_field_opcode_ADDSEEDLEVEL);
-		replace_call(common_externals.update_field_entities + 0x120, (void*)ff8_field_update_seed_level);
-		replace_call(ff8_externals.worldmap_update_steps_sub_6519D0 + 0x152, (void*)ff8_worldmap_update_seed_level);
-
-		// handyman: upgrade weapon
-		replace_call(ff8_externals.menu_junkshop_sub_4EA890 + (JP_VERSION ? 0x5F0 : 0x5C1), (void*)ff8_menu_junkshop_get_char_id_hook_4ABC40);
-		replace_call(ff8_externals.menu_junkshop_sub_4EA890 + (JP_VERSION ? 0x63A : 0x60B), (void*)ff8_menu_junkshop_hook_4EA770);
-
-		// max HP
-		replace_call(ff8_externals.compute_char_stats_sub_495960 + 0x68, (void*)ff8_hook_sub_4954B0);
-		replace_call(ff8_externals.compute_char_stats_sub_495960 + 0x94, (void*)ff8_compute_char_max_hp_496310);
-
-		// max GIL
-		replace_call((uint32_t)ff8_externals.menu_callbacks[11].func + 0x1F0, (void*)ff8_menu_shop_sub_4EBE40);
-		patch_code_dword((uint32_t)ff8_externals.menu_callbacks[11].func + 0x39, (uint32_t)ff8_menu_shop_sub_4EBE40);
-		patch_code_dword((uint32_t)&common_externals.execute_opcode_table[0x151], (uint32_t)&ff8_field_opcode_ADDGIL);
-
-		// max LEVEL
-		replace_call(ff8_externals.battle_menu_sub_4A3EE0 + 0x581, (void*)ff8_battle_menu_add_exp_and_bonus_496CB0);
-
-		// kills
-		replace_call(ff8_externals.battle_sub_494410 + 0x525, (void*)ff8_battle_after_enemy_kill_sub_494AF0);
-
-		// draw magic from draw points
-		replace_call(ff8_externals.opcode_drawpoint + 0x6B7, (void*)ff8_opcode_drawpoint_sub_4A0850);
-		replace_call(ff8_externals.sub_54E9B0 + (FF8_US_VERSION ? 0x845 : (FF8_SP_VERSION ? 0x89A : 0x85F)), (void*)ff8_set_drawpoint_state_52D190);
-
-		// draw magic via stock in battle
-		replace_call(ff8_externals.battle_sub_48D200 + (FF8_US_VERSION ? 0x354 : (JP_VERSION ? 0x36F : 0x355)), (void*)ff8_battle_get_magic_draw_amount_48FD20);
-
-		// timber maniacs
-		patch_code_dword((uint32_t)&common_externals.execute_opcode_table[0x0B], (uint32_t)&ff8_field_opcode_POPM_B);
-
-		// quistis blue magics
-		replace_call((uint32_t)ff8_externals.menu_callbacks[2].func + 0x152, (void*)ff8_menu_use_item_sub_4F81F0);
-		patch_code_dword((uint32_t)ff8_externals.menu_callbacks[2].func + 0x8, (uint32_t)ff8_menu_use_item_sub_4F81F0);
-
-		// dog trainer rinoa
-		replace_call(ff8_externals.field_update_rinoa_limit_breaks_52B320 + 0x5D, (void*)ff8_play_sfx_at_unlock_rinoa_limit_break);
-		replace_call(ff8_externals.worldmap_update_steps_sub_6519D0 + 0x225, (void*)ff8_play_sfx_at_unlock_rinoa_limit_break);
-
-		// omega destroyed
-		replace_call(ff8_externals.battle_ai_opcode_sub_487DF0 + (FF8_US_VERSION ? 0x216C : (JP_VERSION ? 0x2148 : (FF8_SP_VERSION ? 0x21A0 : 0x2176))), (void*)ff8_obtain_proof_of_omega);
-
-		// pupu side quest
-		replace_call(ff8_externals.battle_check_won_sub_486500 + 0x66, (void*)ff8_battle_after_set_result_to_won_sub_494D40);
-
-		// chocobo world
-		replace_call(ff8_externals.menu_chocobo_world_controller + (JP_VERSION ? 0x17FE : 0x1814), (void*)ff8_menu_choco_add_item_to_player_47ED00);
-		replace_call(ff8_externals.menu_chocobo_world_controller + (JP_VERSION ? 0x13BA : 0x13D0), (void*)ff8_menu_chocobo_sub_4FF8F0);
-		// chocobo achievement is implemented in aask opcode (voice section)
-
-		// magazine addict
-		replace_function((uint32_t)ff8_externals.add_item_to_player_sub_47ED00, (void*)ff8_add_item_to_player_wrapper);
-		replace_call(ff8_externals.menu_shop_sub_4EBE40 + 0x11A7, (void*)ff8_menu_shop_update_gil_and_items);
-
-		// obel lake quest
-		replace_call(ff8_externals.worldmap_with_fog_sub_53FAC0 + (FF8_US_VERSION ? 0x3C2 : 0x3C4), (void*)ff8_world_sub_54D7E0);
-	}
-
-	// #####################
-	// widescreen / uncrop
-	// #####################
-	if(widescreen_enabled)
-		ff8_widescreen_hook_init();
-
-	// #####################
-	// 3D model extended memory
-	// #####################
-	extended_memory = (uint8_t *)driver_malloc(0x1000000); // 16 MB
-
-	if (extended_memory) {
-		uint32_t memory_offsets = JP_VERSION ? 0xD6DD60 : 0xB6D060;
-		patch_code_dword(memory_offsets + 0xC, uint32_t(extended_memory) + 0x300000);
-		patch_code_dword(memory_offsets + 0x18, uint32_t(extended_memory) + 0x80000);
-		patch_code_dword(memory_offsets + 0x1C, uint32_t(extended_memory) + 0x80000);
-		patch_code_dword(memory_offsets + 0x20, uint32_t(extended_memory) + 0x100000);
-		patch_code_dword(memory_offsets + 0x24, uint32_t(extended_memory) + 0x100000);
-		patch_code_dword(memory_offsets + 0x2C, uint32_t(extended_memory) + 0x180000);
-		patch_code_dword(memory_offsets + 0x30, uint32_t(extended_memory) + 0x180000);
-		patch_code_dword(memory_offsets + 0x34, uint32_t(extended_memory) + 0x180000);
-
-		// Extend field data size
-		patch_code_dword(ff8_externals.read_field_data + (JP_VERSION ? 0xF64 : 0xED1), uint32_t(extended_memory) + 0x5F0000);
-		patch_code_dword(ff8_externals.read_field_data + (JP_VERSION ? 0xF6B : 0xED8), uint32_t(extended_memory) + 0x600000);
-	} else {
-		ffnx_error("%s: cannot allocate extended_memory\n", __func__);
-	}
-
-	// #####################
-	// field 3D model holes fix
-	// #####################
-	replace_call(ff8_externals.sub_530C30 + 0x46A, ff8_field_3d_models_push_rects);
-	replace_call(uint32_t(ff8_externals.field_push_mch_vertices_rect_sub_533A90) + 0x4D, ff8_field_calc_triangle_condition);
-
 }
 
 struct ff8_gfx_driver *ff8_load_driver(void* _game_object)

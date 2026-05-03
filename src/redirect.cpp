@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -49,12 +49,34 @@ int attempt_redirection(const char* in, char* out, size_t size, bool wantsSteamP
 			strcmp(newIn.data(), "co.bin") == 0
 			)
 		{
-			get_data_lang_path(out);
-			PathAppendA(out, R"(battle)");
-			PathAppendA(out, newIn.data());
+			// CRITICAL: Only redirect scene.bin for structurally compatible languages (EN, JA).
+			// German, French, and Spanish scene.bin have different block structures due to
+			// longer text causing different compression ratios. Using them causes wrong battles.
+			// Block structure: EN/JA [12,6,7,8...] vs DE/FR/ES [11,7,7,8...]
+			bool is_scene = strcmp(newIn.data(), "scene.bin") == 0;
+			bool is_incompatible_lang = !ff8 && !ff7_language.empty() &&
+				(ff7_language == "de" || ff7_language == "fr" || ff7_language == "es");
 
-			if (!fileExists(out))
-				return 1;
+			if (is_scene && is_incompatible_lang)
+			{
+				// For DE/FR/ES, redirect to English scene.bin instead of language-specific
+				// Enemy names will be injected via memory patching
+				strcpy(out, basedir);
+				PathAppendA(out, R"(data\lang-en\battle)");
+				PathAppendA(out, newIn.data());
+
+				if (!fileExists(out))
+					return 1;
+			}
+			else
+			{
+				get_data_lang_path(out);
+				PathAppendA(out, R"(battle)");
+				PathAppendA(out, newIn.data());
+
+				if (!fileExists(out))
+					return 1;
+			}
 		}
 		else
 		{
@@ -94,13 +116,8 @@ int attempt_redirection(const char* in, char* out, size_t size, bool wantsSteamP
 				{
 					if (isSavegame)
 					{
-						if (steam_edition)
-						{
-							pos = strrchr(newIn.data(), 47) + 1;
-							PathAppendA(out, pos);
-						}
-						else
-							PathAppendA(out, newIn.data());
+						pos = strrchr(newIn.data(), 47) + 1;
+						PathAppendA(out, pos);
 					}
 					else
 					{
@@ -184,7 +201,7 @@ int redirect_path_with_override(const char* in, char* out, size_t out_size)
 	char _newFilename[MAX_PATH]{ 0 };
 
 	// Attempt another redirection based on Steam/eStore logic
-	int redirect_status = attempt_redirection(in, _newFilename, sizeof(_newFilename), steam_edition || estore_edition || ff7_2026_rerelease);
+	int redirect_status = attempt_redirection(in, _newFilename, sizeof(_newFilename), steam_edition || estore_edition);
 
 	// File was found
 	if (redirect_status == 0)

@@ -2,11 +2,5 @@
   "name": "bx",
   "version": "1.0.0",
   "description": "Base library used across multiple projects",
-  "homepage": "https://github.com/bkaradzic/bx",
-  "dependencies": [
-    {
-      "name": "vcpkg-msbuild",
-      "host": true
-    }
-  ]
+  "homepage": "https://github.com/bkaradzic/bx"
 }

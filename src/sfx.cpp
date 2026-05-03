@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -198,7 +198,6 @@ bool ff7_sfx_play_layered(float panning, int id, int channel)
 		sprintf(track_name, "%s_%d_%d", get_current_field_name(), *common_externals.current_triangle_id, id);
 		break;
 	case MODE_MENU:
-	case MODE_MAIN_MENU:
 		sprintf(track_name, "menu_%d", id);
 		break;
 	case MODE_WORLDMAP:
@@ -245,7 +244,7 @@ bool ff8_sfx_play_layered(int channel, int id, int volume, float panning)
 	bool playing = false;
 	char track_name[64];
 	float panningf = panning == 64 ? 0.0f : panning * 2 / 127.0f - 1.0f;
-	float volumef = volume / 127.0f;
+	float volumef = volume / 127.0;
 	bool loop = false;
 
 	// Get loop info from audio.fmt
@@ -254,16 +253,16 @@ bool ff8_sfx_play_layered(int channel, int id, int volume, float panning)
 	}
 
 	// TODO: inverted panning option ((Reg.SoundOptions >> 20) & 1)
+	nxAudioEngine.setSFXVolume(channel, volumef);
 
 	switch(mode->driver_mode)
 	{
 	case MODE_FIELD:
 		sprintf(track_name, "%s_%d_%d", get_current_field_name(), *common_externals.current_triangle_id, id);
-		playing = nxAudioEngine.playSFX(track_name, id, channel, panningf, loop, volumef);
+		playing = nxAudioEngine.playSFX(track_name, id, channel, panningf, loop);
 		if (!playing) sprintf(track_name, "%s_%d", get_current_field_name(), id);
 		break;
 	case MODE_MENU:
-	case MODE_MAIN_MENU:
 		sprintf(track_name, "menu_%d", id);
 		break;
 	case MODE_WORLDMAP:
@@ -277,10 +276,10 @@ bool ff8_sfx_play_layered(int channel, int id, int volume, float panning)
 	}
 
 	// If any overridden layer could not be played, fallback to default
-	if (!(playing = nxAudioEngine.playSFX(track_name, id, channel, panningf, loop, volumef)))
+	if (!(playing = nxAudioEngine.playSFX(track_name, id, channel, panningf, loop)))
 	{
 		sprintf(track_name, "%d", id);
-		playing = nxAudioEngine.playSFX(track_name, id, channel, panningf, loop, volumef);
+		playing = nxAudioEngine.playSFX(track_name, id, channel, panningf, loop);
 	}
 
 	return playing;

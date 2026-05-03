@@ -5,7 +5,7 @@
 #    Copyright (C) 2020 myst6re                                               #
 #    Copyright (C) 2020 Chris Rizzitello                                      #
 #    Copyright (C) 2020 John Pritchard                                        #
-#    Copyright (C) 2026 Julian Xhokaxhiu                                      #
+#    Copyright (C) 2024 Julian Xhokaxhiu                                      #
 #                                                                             #
 #    This file is part of FFNx                                                #
 #                                                                             #
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.                             #
 #*****************************************************************************#
 
-cmake_minimum_required(VERSION 4.2)
+cmake_minimum_required(VERSION 3.25)
 cmake_policy(SET CMP0091 NEW)
 
 if(NOT DEFINED CMAKE_BUILD_TYPE)
@@ -29,8 +29,7 @@ if (NOT DEFINED _DLL_VERSION OR NOT _DLL_VERSION)
   message(FATAL_ERROR "_DLL_VERSION must be set to continue building with cmake. \nExample: Add -D_DLL_VERSION=devel to your cmake command line.")
 endif ()
 
-set(VCPKG_DISABLE_COMPILER_TRACKING 1)
-set(VCPKG_INSTALL_OPTIONS "--clean-after-build" "--allow-unsupported")
+set(VCPKG_INSTALL_OPTIONS "--clean-after-build" "--x-use-aria2")
 
 set(CMAKE_SHARED_LINKER_FLAGS
   "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD /DEBUG:FULL /FORCE:MULTIPLE /IGNORE:4006,4075,4099,4217"
@@ -82,20 +81,18 @@ find_package(Vorbis CONFIG REQUIRED)
 find_package(VGMSTREAM REQUIRED)
 find_package(STACKWALKER REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
-find_package(PNG REQUIRED)
+find_package(libpng CONFIG REQUIRED)
 find_package(directxtex CONFIG REQUIRED)
 find_package(mimalloc CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(SOLOUD REQUIRED)
 find_package(OPENPSF REQUIRED)
+find_package(tomlplusplus CONFIG REQUIRED)
 find_package(STEAMWORKSSDK CONFIG REQUIRED)
 find_package(xxHash CONFIG REQUIRED)
 find_package(LZ4 REQUIRED)
 find_package(CMakeRC CONFIG REQUIRED)
-find_package(lfreist-hwinfo CONFIG REQUIRED)
-find_package(cryptopp CONFIG REQUIRED)
-find_package(tomlplusplus CONFIG REQUIRED)
-find_package(SDL3 CONFIG REQUIRED)
+find_package(HWINFO REQUIRED)
 
 set(RELEASE_NAME "FFNx")
 
@@ -107,34 +104,6 @@ else()
   string(REPLACE "." "," _DLL_RCVERSION ${_DLL_VERSION})
   set(_DLL_RCSTRVERSION ${_DLL_VERSION})
 endif()
-
-# Choco driver
-set(CHOCO_RELEASE_NAME "FFNx-Choco")
-file(GLOB_RECURSE choco_source_files "${CMAKE_SOURCE_DIR}/choco/*.cpp")
-add_library(${CHOCO_RELEASE_NAME} SHARED ${choco_source_files} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-target_include_directories(
-  ${CHOCO_RELEASE_NAME}
-  PRIVATE "${CMAKE_SOURCE_DIR}/choco"
-)
-target_link_libraries(
-  ${CHOCO_RELEASE_NAME}
-  shlwapi
-)
-target_compile_options(
-  ${CHOCO_RELEASE_NAME}
-  PRIVATE /DVERSION="${_DLL_VERSION}"
-  PRIVATE /D_CRT_SECURE_NO_WARNINGS
-  PRIVATE /DNOMINMAX
-  PRIVATE /Zc:strictStrings-
-  PRIVATE /Zc:__cplusplus
-  PRIVATE /Zc:preprocessor
-  PRIVATE /Qpar
-  PRIVATE /MP
-)
-target_compile_features(${CHOCO_RELEASE_NAME}
-  PRIVATE cxx_std_20
-)
-target_link_options(${CHOCO_RELEASE_NAME} PRIVATE /PDBALTPATH:${CHOCO_RELEASE_NAME}.pdb PRIVATE /DEF:${CMAKE_SOURCE_DIR}/misc/${CHOCO_RELEASE_NAME}.def)
 
 # Include all the source code files
 file(GLOB_RECURSE source_files "${CMAKE_SOURCE_DIR}/src/*.cpp")
@@ -149,7 +118,6 @@ cmrc_add_resource_library(
 )
 
 add_library(${RELEASE_NAME} SHARED ${source_files} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-add_dependencies(${RELEASE_NAME} ${CHOCO_RELEASE_NAME})
 target_include_directories(
   ${RELEASE_NAME}
   PRIVATE "${CMAKE_SOURCE_DIR}/src"
@@ -169,8 +137,6 @@ target_link_directories(
 target_link_libraries(
   ${RELEASE_NAME}
   ${RELEASE_NAME}::rc
-  comctl32
-  wintrust
   dbghelp
   shlwapi
   psapi
@@ -179,10 +145,9 @@ target_link_libraries(
   dinput8
   dxguid
   XINPUT9_1_0
-  SDL3::SDL3-static
   strmiids
   ZLIB::ZLIB
-  PNG::PNG
+  png_static
   Microsoft::DirectXTex
   mimalloc-static
   imgui::imgui
@@ -194,15 +159,14 @@ target_link_libraries(
   Vorbis::vorbisfile
   Vorbis::vorbis
   MPG123::libmpg123
-  lfreist-hwinfo::hwinfo
-  unofficial::stackwalker::StackWalker
-  cryptopp::cryptopp
+  HWINFO::HWINFO
   ${BX_LIBRARIES}
   ${BIMG_LIBRARIES}
   ${BGFX_LIBRARIES}
   ${FFMPEG_LIBRARIES}
   ${OPENPSF_LIBRARIES}
   ${SOLOUD_LIBRARIES}
+  ${STACKWALKER_LIBRARIES}
   ${VGMSTREAM_LIBRARIES}
 )
 target_compile_options(
@@ -226,15 +190,10 @@ endif()
 target_compile_features(${RELEASE_NAME}
   PRIVATE cxx_std_20
 )
-target_link_options(
-  ${RELEASE_NAME}
-  PRIVATE /PDBALTPATH:${RELEASE_NAME}.pdb
-  PRIVATE /DEF:${CMAKE_SOURCE_DIR}/misc/${RELEASE_NAME}.def
-  PRIVATE /MANIFESTDEPENDENCY:"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'"
-)
+target_link_options(${RELEASE_NAME} PRIVATE /PDBALTPATH:${RELEASE_NAME}.pdb PRIVATE /DEF:${CMAKE_SOURCE_DIR}/misc/${RELEASE_NAME}.def)
 
 # SHADER COMPILATION
-set(FFNX_SHADERS "FFNx" "FFNx.lighting" "FFNx.shadowmap" "FFNx.field.shadow" "FFNx.overlay" "FFNx.post" "FFNx.blit")
+set(FFNX_SHADERS "FFNx" "FFNx.lighting" "FFNx.shadowmap" "FFNx.field.shadow" "FFNx.overlay" "FFNx.post" "FFNx.blit" "FFNx.sdf")
 foreach(FFNX_SHADER IN LISTS FFNX_SHADERS)
   foreach(BGFX_VARYING flat smooth)
     add_custom_command(
@@ -301,14 +260,6 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy
           ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${RELEASE_NAME}.dll
           ${CMAKE_BINARY_DIR}/bin
-  # choco .dll
-  COMMAND ${CMAKE_COMMAND} -E copy
-          ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${CHOCO_RELEASE_NAME}.dll
-          ${CMAKE_BINARY_DIR}/bin
-  # rename choco .dll to AF4DN.P
-  COMMAND ${CMAKE_COMMAND} -E rename
-          ${CMAKE_BINARY_DIR}/bin/${CHOCO_RELEASE_NAME}.dll
-          ${CMAKE_BINARY_DIR}/bin/AF4DN.P
   # steam_api.dll
   COMMAND ${CMAKE_COMMAND} -E copy
           ${CMAKE_BINARY_DIR}/vcpkg_installed/x86-windows-static/tools/steamworkssdk/steam_api.dll
@@ -404,7 +355,7 @@ add_custom_command(
 
 # CPU INFO
 add_custom_command(
-  TARGET ${CHOCO_RELEASE_NAME}
+  TARGET ${RELEASE_NAME}
   PRE_BUILD
   # Get CPU info
   COMMAND
@@ -526,7 +477,7 @@ if(NOT "${FF7_STEAM_GAME_PATH}" STREQUAL "")
   )
 endif()
 
-# Copy FFNx release to FF8 Steam game path if installed
+# Copy FFNx release to FF7 Steam game path if installed
 execute_process(
   COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/utils/FindSteamGamePath 39150
   OUTPUT_VARIABLE FF8_STEAM_GAME_PATH
@@ -566,49 +517,5 @@ if(NOT "${FF8_STEAM_GAME_PATH}" STREQUAL "")
     COMMAND ${CMAKE_COMMAND} -E rename
             ${FF8_STEAM_GAME_PATH}/FFNx.toml.bak
             ${FF8_STEAM_GAME_PATH}/FFNx.toml
-  )
-endif()
-
-# Copy FFNx release to FF7 Rerelease Steam game path if installed
-execute_process(
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/utils/FindSteamGamePath 3837340
-  OUTPUT_VARIABLE FF7_STEAM_RERELEASE_GAME_PATH
-  ERROR_VARIABLE FF7_STEAM_RERELEASE_ERROR
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-if(NOT "${FF7_STEAM_RERELEASE_GAME_PATH}" STREQUAL "")
-  cmake_path(CONVERT "${FF7_STEAM_RERELEASE_GAME_PATH}" TO_CMAKE_PATH_LIST FF7_STEAM_RERELEASE_GAME_PATH)
-  set(FF7_STEAM_RERELEASE_GAME_PATH "${FF7_STEAM_RERELEASE_GAME_PATH}/ff7/workingdir")
-  # Ensure FFNx.toml exists so the copy on build does not error on fresh installs
-  if(NOT EXISTS "${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.toml")
-    # Copy file if it doesn't exist
-    file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/misc/FFNx.toml" DESTINATION "${FF7_STEAM_RERELEASE_GAME_PATH}/")
-  endif()
-  add_custom_command(
-    TARGET ${RELEASE_NAME}
-    POST_BUILD
-    COMMAND echo Copying ${RELEASE_NAME} ${_DLL_VERSION} release to ${FF7_STEAM_RERELEASE_GAME_PATH}...
-    # Preserve the current FFNx.toml
-    COMMAND ${CMAKE_COMMAND} -E rename
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.toml
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.toml.bak
-    # Copy all dist files
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_BINARY_DIR}/bin
-            ${FF7_STEAM_RERELEASE_GAME_PATH}
-    # Delete previous AF3DN.P
-    COMMAND ${CMAKE_COMMAND} -E remove
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/AF3DN.P
-    # Rename FFNx.dll to AF3DN.P
-    COMMAND ${CMAKE_COMMAND} -E rename
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.dll
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/AF3DN.P
-    # Delete the new copied FFNx.toml
-    COMMAND ${CMAKE_COMMAND} -E remove
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.toml
-    # Bring back the existing FFNx.toml
-    COMMAND ${CMAKE_COMMAND} -E rename
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.toml.bak
-            ${FF7_STEAM_RERELEASE_GAME_PATH}/FFNx.toml
   )
 endif()

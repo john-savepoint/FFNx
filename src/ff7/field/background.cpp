@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -23,6 +23,7 @@
 
 #include "../../common.h"
 #include "../../globals.h"
+#include "../../log.h"
 #include "../widescreen.h"
 
 #include "../../renderer.h"
@@ -33,10 +34,19 @@
 #include "camera.h"
 
 #include <functional>
+#include <cmath>
+
+// External variable from voice.cpp that tracks current ASK option
+extern byte opcode_ask_current_option;
 
 namespace ff7::field
 {
     constexpr float MIN_STEP_INVERSE = 10.f;
+
+    // Line height constants for cursor correction (must match japanese_text.cpp)
+    constexpr int JA_VANILLA_LINE_HEIGHT = 32; // Original game line height
+    constexpr int JA_CUSTOM_LINE_HEIGHT = 26;  // Custom line height for Japanese text
+    constexpr int JA_TEXT_PADDING_TOP = 16;    // Standard FF7 top padding for text
 
     // ##################################################################
     // ----------------- DRAW GRAPHICS RELATED --------------------------
@@ -127,10 +137,10 @@ namespace ff7::field
     {
         const int left_offset = 352 + (is_fieldmap_wide() ? abs(wide_viewport_x) : 0);
         const int right_offset = is_fieldmap_wide() ? abs(wide_viewport_x) : 0;
-        const int top_offset = 256 + (enable_uncrop ? 8 : 0);
-        const int bottom_offset = enable_uncrop ? 8 : 0;
+        const int top_offset = 256 + (widescreen_enabled ? 8 : 0);
+        const int bottom_offset = widescreen_enabled ? 8 : 0;
         const int half_width = is_fieldmap_wide() ? ceil(wide_viewport_width / 4) : 160;
-        const int half_height = enable_uncrop ? 120 : 112;
+        const int half_height = widescreen_enabled ? 120 : 112;
 
         if(tile_position->x <= bg_position->x - left_offset || tile_position->x >= bg_position->x + right_offset)
             tile_position->x += (tile_position->x >= bg_position->x - half_width) ? -layer3_width : layer3_width;
@@ -167,14 +177,14 @@ namespace ff7::field
         else
             z_value = 0.9998;
 
-        const bool do_increase_height = enable_uncrop;
+        const bool do_increase_height = widescreen_enabled;
         const bool do_increase_width = is_fieldmap_wide() && (*ff7_externals.field_triggers_header)->bg3_width < ceil(wide_viewport_width / 2);
         const int layer3_width = (*ff7_externals.field_triggers_header)->bg3_width * (do_increase_width ? 2 : 1);
         const int layer3_height = (*ff7_externals.field_triggers_header)->bg3_height * (do_increase_height ? 2 : 1);
         const int left_offset = 352 + (is_fieldmap_wide() ? abs(wide_viewport_x) : 0);
         const int right_offset = is_fieldmap_wide() ? abs(wide_viewport_x) : 0;
-        const int top_offset = 256 + (enable_uncrop ? 8 : 0);
-        const int bottom_offset = enable_uncrop ? 8 : 0;
+        const int top_offset = 256 + (widescreen_enabled ? 8 : 0);
+        const int bottom_offset = widescreen_enabled ? 8 : 0;
 
         for(int i = 0; i < *ff7_externals.field_layer3_tiles_num; i++)
         {
@@ -202,7 +212,7 @@ namespace ff7::field
                                         layer3_tiles[tile_index].v, layer3_tiles[tile_index].palette_index, page);
         }
 
-        if(widescreen_enabled || enable_uncrop)
+        if(widescreen_enabled)
         {
             // Apply repeat x-y for background layer 4 tiles
             std::vector<vector2<int>> tile_offsets;
@@ -250,8 +260,8 @@ namespace ff7::field
     {
         const int left_offset = 352 + (is_fieldmap_wide() ? abs(wide_viewport_x) : 0);
         const int right_offset = is_fieldmap_wide() ? abs(wide_viewport_x) : 0;
-        const int top_offset = 256 + (enable_uncrop ? 8 : 0);
-        const int bottom_offset = enable_uncrop ? 8 : 0;
+        const int top_offset = 256 + (widescreen_enabled ? 8 : 0);
+        const int bottom_offset = widescreen_enabled ? 8 : 0;
         const int half_width = is_fieldmap_wide() ? ceil(wide_viewport_width / 4) : 160;
 
         if(tile_position->x <= bg_position->x - left_offset || tile_position->x >= bg_position->x + right_offset)
@@ -289,14 +299,14 @@ namespace ff7::field
             initial_pos.y = ((ff7_field_center ? 232 : 224) - bg_position.y) * field_bg_multiplier;
             float z_value = ff7_externals.field_layer_sub_623C0F(ff7_externals.field_camera_rotation_matrix_CFF3D8, ff7_externals.modules_global_object->field_AE, 0, 0);
 
-            const bool do_increase_height = enable_uncrop;
+            const bool do_increase_height = widescreen_enabled;
             const bool do_increase_width = is_fieldmap_wide() && (*ff7_externals.field_triggers_header)->bg4_width < ceil(wide_viewport_width / 2);
             const int layer4_width = (*ff7_externals.field_triggers_header)->bg4_width * (do_increase_width ? 2 : 1);
             const int layer4_height = (*ff7_externals.field_triggers_header)->bg4_height * (do_increase_height ? 2 : 1);
             const int left_offset = 352 + (is_fieldmap_wide() ? abs(wide_viewport_x) : 0);
             const int right_offset = is_fieldmap_wide() ? abs(wide_viewport_x) : 0;
-            const int top_offset = 256 + (enable_uncrop ? 8 : 0);
-            const int bottom_offset = enable_uncrop ? 8 : 0;
+            const int top_offset = 256 + (widescreen_enabled ? 8 : 0);
+            const int bottom_offset = widescreen_enabled ? 8 : 0;
 
             for(int i = 0; i < *ff7_externals.field_layer4_tiles_num; i++)
             {
@@ -326,7 +336,7 @@ namespace ff7::field
                 }
             }
 
-            if(widescreen_enabled || enable_uncrop)
+            if(widescreen_enabled)
             {
                 // Apply repeat x-y for background layer 4 tiles
                 std::vector<vector2<int>> tile_offsets;
@@ -394,7 +404,82 @@ namespace ff7::field
 
     void ff7_field_submit_draw_cursor(field_arrow_graphics_data* arrow_data)
     {
-        // Add delta position lost due to non-float calculation
+        // Japanese text line height correction for ASK dialogue cursor
+        // This function handles BOTH field pointer (over Cloud) AND ASK dialogue cursor
+        // We detect which by checking if cursor Y is inside a text box window
+        if (ff7_japanese_edition && JA_CUSTOM_LINE_HEIGHT != JA_VANILLA_LINE_HEIGHT)
+        {
+            float cursorY = arrow_data->vertices[0].y;
+            int foundWindow = -1;
+            float winTop = 0;
+
+            // Debug: Log every call to understand what's being passed
+            static int callCount = 0;
+            callCount++;
+            if (callCount <= 20 || (callCount % 100 == 0))
+            {
+                ffnx_trace("CURSOR_HOOK: call#%d, cursorY=%.1f\n", callCount, cursorY);
+                for (int i = 0; i < 4; i++)
+                {
+                    auto& win = ff7_externals.text_box_window_data_array_CFF5B8[i];
+                    ffnx_trace("  win[%d]: flags=%d, pos=(%d,%d), size=(%d,%d), cur_size=(%d,%d)\n",
+                        i, (int)win.flags, (int)win.window_pos_x, (int)win.window_pos_y,
+                        (int)win.window_width, (int)win.window_height,
+                        (int)win.current_window_width, (int)win.current_window_height);
+                }
+            }
+
+            // Check if cursor is inside any active text box window (ASK dialogue)
+            for (int i = 0; i < 4; i++)
+            {
+                auto& win = ff7_externals.text_box_window_data_array_CFF5B8[i];
+                // Check multiple conditions for "active" window
+                if (win.flags != 0 || win.window_height > 0)  // Window might be active
+                {
+                    // Check if cursor Y is within this window's vertical bounds
+                    float winH = (win.current_window_height > 0) ? win.current_window_height : win.window_height;
+                    float winBottom = win.window_pos_y + winH;
+                    if (cursorY >= win.window_pos_y - 20 && cursorY <= winBottom + 50)
+                    {
+                        foundWindow = i;
+                        winTop = (float)win.window_pos_y;
+                        break;
+                    }
+                }
+            }
+
+            // If cursor is inside a text box, apply ASK dialogue cursor correction
+            if (foundWindow != -1)
+            {
+                // Vanilla formula: CursorY = WinTop + 16 + (Row * 32)
+                // Reverse it: Row = (CursorY - WinTop - 16) / 32
+                int row = (int)((cursorY - winTop - (float)JA_TEXT_PADDING_TOP) / (float)JA_VANILLA_LINE_HEIGHT + 0.5f);
+
+                // Debug logging
+                static int lastRow = -1;
+                static int lastWindow = -1;
+                if (row != lastRow || foundWindow != lastWindow)
+                {
+                    ffnx_trace("ASK CURSOR: win=%d, cursorY=%.1f, winTop=%.1f, row=%d\n",
+                        foundWindow, cursorY, winTop, row);
+                    lastRow = row;
+                    lastWindow = foundWindow;
+                }
+
+                // Apply correction for rows after the first
+                if (row > 0)
+                {
+                    float adjustment = row * (float)(JA_VANILLA_LINE_HEIGHT - JA_CUSTOM_LINE_HEIGHT);
+                    for (int v = 0; v < 4; v++)
+                    {
+                        arrow_data->vertices[v].y -= adjustment;
+                    }
+                }
+            }
+            // else: field pointer - no adjustment needed (field pointer doesn't use line height)
+        }
+
+        // Add delta position lost due to non-float calculation (existing logic for field pointer)
         if(is_position_valid(cursor_position))
         {
             vector2<float> delta;
@@ -410,6 +495,64 @@ namespace ff7::field
         ff7_externals.field_submit_draw_arrow_63A171(arrow_data);
     }
 
+    // ASK dialogue cursor correction for Japanese text line height
+    // This is hooked from DrawWindowCursor (sub_631D10) which draws the selection finger
+    // in dialogue choice windows. Uses geometry-based row calculation since memory
+    // variables don't reliably track the current selection.
+    void ff7_field_submit_draw_window_cursor(field_arrow_graphics_data* arrow_data)
+    {
+        // Only apply correction for Japanese edition with custom line height
+        if (ff7_japanese_edition && JA_CUSTOM_LINE_HEIGHT != JA_VANILLA_LINE_HEIGHT)
+        {
+            float cursorY = arrow_data->vertices[0].y;
+            int foundWindow = -1;
+            float winTop = 0;
+
+            // 1. Find which text box window the cursor is inside
+            for (int i = 0; i < 4; i++)
+            {
+                auto& win = ff7_externals.text_box_window_data_array_CFF5B8[i];
+                if (win.flags != 0)  // Window is active
+                {
+                    // Check vertical bounds with generous padding
+                    if (cursorY >= win.window_pos_y - 10 &&
+                        cursorY <= win.window_pos_y + win.current_window_height + 10)
+                    {
+                        foundWindow = i;
+                        winTop = (float)win.window_pos_y;
+                        break;
+                    }
+                }
+            }
+
+            // 2. Calculate row and apply cursor Y offset
+            if (foundWindow != -1)
+            {
+                // Vanilla logic: CursorY = WinTop + 16 + (Row * 32)
+                // Reverse it: Row = (CursorY - WinTop - 16) / 32
+                // Add 0.5f to round to nearest integer
+                int row = (int)((cursorY - winTop - (float)JA_TEXT_PADDING_TOP) / (float)JA_VANILLA_LINE_HEIGHT + 0.5f);
+
+                if (row > 0)
+                {
+                    // Calculate how much we need to move cursor UP
+                    // Vanilla spacing: 32px. Custom spacing: 26px.
+                    // Difference: 6px per row
+                    float adjustment = row * (float)(JA_VANILLA_LINE_HEIGHT - JA_CUSTOM_LINE_HEIGHT);
+
+                    // Apply to all 4 vertices of the cursor quad
+                    for (int k = 0; k < 4; k++)
+                    {
+                        arrow_data->vertices[k].y -= adjustment;
+                    }
+                }
+            }
+        }
+
+        // Call original draw function
+        ff7_externals.field_submit_draw_arrow_63A171(arrow_data);
+    }
+
     // ##################################################################
     // ##################################################################
     // ##################################################################
@@ -420,13 +563,10 @@ namespace ff7::field
         float half_width = 160;
         auto camera_range = field_triggers_header_ptr->camera_range;
 
-        if(widescreen_enabled || enable_uncrop)
+        if(widescreen_enabled && is_fieldmap_wide())
         {
             camera_range = widescreen.getCameraRange();
-        }
 
-        if(is_fieldmap_wide())
-        {
             // Adjustment to prevent scrolling stopping one pixel too early
             camera_range.left += 1;
             camera_range.right -= 1;
@@ -483,13 +623,10 @@ namespace ff7::field
         float half_width = 160;
         auto camera_range = trigger_header->camera_range;
 
-        if (enable_uncrop || widescreen_enabled)
+        if(widescreen_enabled && is_fieldmap_wide())
         {
             camera_range = widescreen.getCameraRange();
-        }
 
-        if(is_fieldmap_wide())
-        {
             // This centers the background if necessary
             int cameraRangeSize = camera_range.right - camera_range.left;
             half_width = 160 + std::min(53, cameraRangeSize / 2 - 160);
@@ -549,23 +686,12 @@ namespace ff7::field
         float half_width = 160 + std::min(53, cameraRangeSize / 2 - 160);
 
         point->x += widescreen.getHorizontalOffset();
+        point->y += widescreen.getVerticalOffset();
 
         if (point->x > camera_range.right - half_width)
             point->x = camera_range.right - half_width;
         if (point->x < camera_range.left + half_width)
             point->x = camera_range.left + half_width;
-    }
-
-    void field_uncropped_height_clip_with_camera_range(vector2<short>* point)
-    {
-        if(!widescreen.isScriptedClipEnabled())
-        {
-            return;
-        }
-
-        auto camera_range = widescreen.getCameraRange();
-
-        point->y += widescreen.getVerticalOffset();
 
         if(widescreen.isScriptedVerticalClipEnabled())
         {
@@ -659,9 +785,6 @@ namespace ff7::field
 
                 if(is_fieldmap_wide())
                     field_widescreen_width_clip_with_camera_range(&world_pos);
-                if(is_fieldmap_uncropped())
-                    field_uncropped_height_clip_with_camera_range(&world_pos);
-                
 
                 *ff7_externals.scripted_world_initial_pos_x = -world_pos.x;
                 *ff7_externals.scripted_world_initial_pos_y = -world_pos.y;
@@ -673,8 +796,6 @@ namespace ff7::field
                 world_pos = {-(ff7_externals.modules_global_object->field_A), -(ff7_externals.modules_global_object->field_C)};
                 if(is_fieldmap_wide())
                     field_widescreen_width_clip_with_camera_range(&world_pos);
-                if(is_fieldmap_uncropped())
-                    field_uncropped_height_clip_with_camera_range(&world_pos);
 
                 *ff7_externals.field_curr_delta_world_pos_x = -world_pos.x;
                 *ff7_externals.field_curr_delta_world_pos_y = -world_pos.y;
@@ -689,8 +810,6 @@ namespace ff7::field
                 world_pos = {(-*ff7_externals.field_curr_delta_world_pos_x), -(*ff7_externals.field_curr_delta_world_pos_y)};
                 if(is_fieldmap_wide())
                     field_widescreen_width_clip_with_camera_range(&world_pos);
-                if(is_fieldmap_uncropped())
-                    field_uncropped_height_clip_with_camera_range(&world_pos);
 
                 *ff7_externals.scripted_world_initial_pos_x = -world_pos.x;
                 *ff7_externals.scripted_world_initial_pos_y = -world_pos.y;
@@ -698,8 +817,6 @@ namespace ff7::field
                 world_pos = {-(ff7_externals.modules_global_object->field_A), -(ff7_externals.modules_global_object->field_C)};
                 if(is_fieldmap_wide())
                     field_widescreen_width_clip_with_camera_range(&world_pos);
-                if(is_fieldmap_uncropped())
-                    field_uncropped_height_clip_with_camera_range(&world_pos);
 
                 *ff7_externals.scripted_world_final_pos_x = -world_pos.x;
                 *ff7_externals.scripted_world_final_pos_y = -world_pos.y;
@@ -802,8 +919,6 @@ namespace ff7::field
                         field_widescreen_width_clip_with_camera_range(&world_pos);
                         *ff7_externals.scripted_world_initial_pos_x = -world_pos.x;
                     }
-                    if(is_fieldmap_uncropped())
-                        field_uncropped_height_clip_with_camera_range(&world_pos);
 
                     std::function<int(int, int, int, int)> field_get_interpolated_value = ff7_externals.modules_global_object->world_move_mode == 5 ?
                         ff7_externals.field_get_linear_interpolated_value : ff7_externals.field_get_smooth_interpolated_value;
@@ -859,8 +974,6 @@ namespace ff7::field
                 field_widescreen_width_clip_with_camera_range(&world_pos);
                 *ff7_externals.field_curr_delta_world_pos_x = -world_pos.x;
             }
-            if(is_fieldmap_uncropped())
-                field_uncropped_height_clip_with_camera_range(&world_pos);
         }
 
         if(is_position_valid(field_curr_delta_world_pos))
@@ -933,15 +1046,8 @@ namespace ff7::field
             cursor_position.y = ff7_externals.field_viewport_xy_CFF204->y - 32;
     }
 
-    void ff7_field_update_background_smooth()
+    void ff7_field_update_background()
     {
-        // Pause field background animation when opcode script is paused (which is when MENU mode is opened).
-        // Fix woa_* desync animation
-        if (*common_externals._mode == 5)
-        {
-            return;
-        }
-
         ff7_externals.field_update_background_positions();
 
         int player_model_id = *ff7_externals.field_player_model_id;
@@ -1009,19 +1115,6 @@ namespace ff7::field
             compute_pointer_hand_position(field_3d_world_pos, player_model_id);
         }
     }
-
-    void ff7_field_update_background_original()
-    {
-        // Pause field background animation when opcode script is paused (which is when MENU mode is opened).
-        // Fix woa_* desync animation
-        if (*common_externals._mode == 5)
-        {
-            return;
-        }
-
-        ff7_externals.field_update_background_positions();
-    }
-
 
     // This function should be called at each frame after drawing backgrounds and 3d models
     void draw_gray_quads_sub_644E90()

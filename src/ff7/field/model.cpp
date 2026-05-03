@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -58,7 +58,7 @@ namespace ff7::field
         if (emulate_run)
         {
             key_input_status &= ~0x40;
-            ff7_externals.modules_global_object->current_key_input_status &= ~0x40;
+            if (emulate_run) ff7_externals.modules_global_object->current_key_input_status &= ~0x40;
         }
 
         for(int model_idx = 0; model_idx < (int)(*ff7_externals.field_n_models); model_idx++)
@@ -269,7 +269,7 @@ namespace ff7::field
         }
     }
 
-    void ff7_handle_KAWAI_reset()
+    void ff7_field_handle_blink_reset()
     {
         static WORD last_field_id = 0;
 
@@ -281,20 +281,12 @@ namespace ff7::field
             ff7_externals.field_model_blink_data_D000C8->blink_left_eye_mode = 0;
             ff7_externals.field_model_blink_data_D000C8->blink_right_eye_mode = 0;
 
+            // Reset mouths
             for(int i = 0; i < FF7_MAX_NUM_MODEL_ENTITIES; i++)
             {
-                // Reset mouths
                 ff7_model_data[i].current_mouth_idx = 0;
                 if (ff7_model_data[i].mouth_tex) ff7_externals.field_unload_model_tex(ff7_model_data[i].mouth_tex);
                 ff7_model_data[i].mouth_tex = NULL;
-
-                // Reset KAWAI state
-                ff7_model_data[i].is_kawai_active = false;
-                ff7_model_data[i].do_kawai_repeat = false;
-                ff7_model_data[i].init_kawai_opcode = 0x0;
-                ff7_model_data[i].init_kawai_params = nullptr;
-                ff7_model_data[i].exec_kawai_opcode = 0x0;
-                ff7_model_data[i].exec_kawai_params = nullptr;
             }
         }
     }
@@ -393,7 +385,7 @@ namespace ff7::field
         static char curr_model_name[10]{0};
         bool is_npc = false;
 
-        if (ff7_advanced_blinking && curr_model_id != MAXBYTE && !ff7_externals.movie_object->is_playing)
+        if (ff7_advanced_blinking && curr_model_id != MAXBYTE)
         {
             byte left_eye_index = blink_data->blink_left_eye_mode;
             byte right_eye_index = blink_data->blink_right_eye_mode;

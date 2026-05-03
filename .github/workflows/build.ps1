@@ -5,7 +5,7 @@
 #    Copyright (C) 2020 myst6re                                               #
 #    Copyright (C) 2020 Chris Rizzitello                                      #
 #    Copyright (C) 2020 John Pritchard                                        #
-#    Copyright (C) 2026 Julian Xhokaxhiu                                      #
+#    Copyright (C) 2024 Julian Xhokaxhiu                                      #
 #                                                                             #
 #    This file is part of FFNx                                                #
 #                                                                             #
@@ -34,10 +34,10 @@ elseif ($env:_BUILD_BRANCH -like "refs/tags/*")
 }
 $env:_RELEASE_VERSION = "v${env:_BUILD_VERSION}"
 
-$vcpkgRoot = ".\vcpkg"
+$vcpkgRoot = "C:\vcpkg"
 $vcpkgBaseline = [string](jq --arg baseline "builtin-baseline" -r '.[$baseline]' vcpkg.json)
 $vcpkgOriginUrl = &"git" -C $vcpkgRoot remote get-url origin
-$vcpkgTagName = &"git" -C $vcpkgRoot describe --exact-match --tags
+$vcpkgBranchName = &"git" -C $vcpkgRoot branch --show-current
 
 $releasePath = [string](jq -r '.configurePresets[0].binaryDir' CMakePresets.json).Replace('${sourceDir}/', '')
 
@@ -45,7 +45,7 @@ Write-Output "--------------------------------------------------"
 Write-Output "BUILD CONFIGURATION: $env:_RELEASE_CONFIGURATION"
 Write-Output "RELEASE VERSION: $env:_RELEASE_VERSION"
 Write-Output "VCPKG ORIGIN: $vcpkgOriginUrl"
-Write-Output "VCPKG TAG: $vcpkgTagName"
+Write-Output "VCPKG BRANCH: $vcpkgBranchName"
 Write-Output "VCPKG BASELINE: $vcpkgBaseline"
 Write-Output "--------------------------------------------------"
 
@@ -54,6 +54,20 @@ Write-Output "_RELEASE_VERSION=${env:_RELEASE_VERSION}" >> ${env:GITHUB_ENV}
 Write-Output "_IS_BUILD_CANARY=${env:_IS_BUILD_CANARY}" >> ${env:GITHUB_ENV}
 Write-Output "_IS_GITHUB_RELEASE=${env:_IS_GITHUB_RELEASE}" >> ${env:GITHUB_ENV}
 Write-Output "_CHANGELOG_VERSION=${env:_CHANGELOG_VERSION}" >> ${env:GITHUB_ENV}
+
+# Install CMake
+Write-Output "Installing cmake v${env:_WINGET_CMAKE}..."
+winget install Kitware.CMake --version ${env:_WINGET_CMAKE} --silent --uninstall-previous --accept-source-agreements --accept-package-agreements --disable-interactivity --force | out-null
+cmake --version
+
+# Install Powershell
+Write-Output "Installing powershell v${env:_WINGET_POWERSHELL}..."
+winget install Microsoft.PowerShell --version ${env:_WINGET_POWERSHELL} --silent --uninstall-previous --accept-source-agreements --accept-package-agreements --disable-interactivity --force | out-null
+pwsh --version
+
+# Install Visual Studio Enterprise
+Write-Output "Installing VisualStudio 2022 Enterprise v${env:_WINGET_VS2022}..."
+winget install Microsoft.VisualStudio.2022.Enterprise --version ${env:_WINGET_VS2022} --silent --accept-source-agreements --accept-package-agreements --disable-interactivity --force | out-null
 
 # Load vcvarsall environment for x86
 $vcvarspath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -prerelease -latest -property InstallationPath
@@ -73,6 +87,10 @@ nuget setApiKey ${env:GITHUB_PACKAGES_PAT} -Source "https://nuget.pkg.github.com
 nuget sources list
 
 # Vcpkg setup
+git -C $vcpkgRoot pull --all
+git -C $vcpkgRoot checkout $vcpkgBaseline
+git -C $vcpkgRoot clean -fxd
+
 cmd.exe /c "call $vcpkgRoot\bootstrap-vcpkg.bat"
 
 vcpkg integrate install
@@ -92,8 +110,6 @@ Remove-Item .dist\pkg\FF7_1998\FF8.reg
 Remove-Item .dist\pkg\FF8_2000\FF7.reg
 Remove-Item .dist\pkg\FFNx_Steam\FF7.reg
 Remove-Item .dist\pkg\FFNx_Steam\FF8.reg
-Remove-Item .dist\pkg\FF7_1998\AF4DN.P
-Remove-Item .dist\pkg\FF8_2000\AF4DN.P
 Move-Item .dist\pkg\FF7_1998\FF7.reg .dist\pkg\FF7_1998\FFNx.reg
 Move-Item .dist\pkg\FF8_2000\FF8.reg .dist\pkg\FF8_2000\FFNx.reg
 Move-Item .dist\pkg\FF8_2000\FFNx.dll .dist\pkg\FF8_2000\eax.dll

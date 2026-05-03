@@ -1,4 +1,4 @@
-![License](https://img.shields.io/github/license/julianxhokaxhiu/FFNx) ![Overall Downloads](https://img.shields.io/github/downloads/julianxhokaxhiu/FFNx/total?label=Overall%20Downloads) ![Latest Stable Downloads](https://img.shields.io/github/downloads/julianxhokaxhiu/FFNx/latest/total?label=Latest%20Stable%20Downloads&sort=semver) ![Latest Canary Downloads](https://img.shields.io/github/downloads/julianxhokaxhiu/FFNx/canary/total?label=Latest%20Canary%20Downloads) ![GitHub Actions Workflow Status](https://github.com/julianxhokaxhiu/FFNx/actions/workflows/main-1.24.3.yml/badge.svg?branch=master)
+![License](https://img.shields.io/github/license/julianxhokaxhiu/FFNx) ![Overall Downloads](https://img.shields.io/github/downloads/julianxhokaxhiu/FFNx/total?label=Overall%20Downloads) ![Latest Stable Downloads](https://img.shields.io/github/downloads/julianxhokaxhiu/FFNx/latest/total?label=Latest%20Stable%20Downloads&sort=semver) ![Latest Canary Downloads](https://img.shields.io/github/downloads/julianxhokaxhiu/FFNx/canary/total?label=Latest%20Canary%20Downloads) ![GitHub Actions Workflow Status](https://github.com/julianxhokaxhiu/FFNx/actions/workflows/main-1.21.0.yml/badge.svg?branch=master)
 
 <div align="center">
   <img src="https://github.com/julianxhokaxhiu/FFNx/blob/master/.logo/logo_nobg.png" alt="">
@@ -7,7 +7,7 @@
 
 # FFNx
 
-Next generation modding platform for Final Fantasy VII and Final Fantasy VIII (with native Steam 2013, Steam 2026 Rerelease, GOG and Windows Store support)
+Next generation modding platform for Final Fantasy VII and Final Fantasy VIII (with native Steam 2013 release support)
 
 ## Introduction
 
@@ -19,7 +19,7 @@ FFNx today in a nutshell:
 - Comes built-in with 7th Heaven v2.3 and higher
 - Supports the newest video and audio codecs (WEBM, H.265, Ogg, etc.)
 - Drastically enhances the gameplay experience compared to the vanilla experience
-- Provides four stable rendering backends:
+- Provides four stable and one experimental rendering backends:
   - DirectX 11 (default)
   - DirectX 12
   - Vulkan
@@ -48,9 +48,9 @@ We are always open for contributions via PRs, and in case you want to join the c
 - Up to 16x anisotropic support
 - Up to 16x antialiasing support
 - 5.1/7.1 audio output support
-- Steam 2013 support; no game converter required
-- Steam 2013 savegame preservation (you no longer lose saves created while FFNx is active)
-- SDL, XInput, and DirectInput controller support (Xbox, PlayStation, Nintendo and compatible controllers) with D-Pad working out-of-the-box
+- Steam support; no game converter required
+- Steam savegame preservation (you no longer lose saves created while FFNx is active)
+- XInput controller support (Xbox 360 and compatible) with D-Pad working out-of-the-box
 - Native speedhack support
 - External music loading to replace original MIDIs
 - The game continues to run within an inactive window
@@ -63,7 +63,7 @@ We are always open for contributions via PRs, and in case you want to join the c
 - Menu cursor vertically aligned on the center of words
 - Movies continue to play while running in an inactive window
 - Movie volume respects global sound volume
-- Steam/GOG/Windows Store sound and music volume configuration preservation (configure at your pleasure and on the next run it will be inherited)
+- Steam sound and music volume configuration preservation (configure at your pleasure and on the next run it will be inherited)
 - Configurable background transparency in battle dialogs (by default set to 75%)
 - SFX volume change applies in real-time, instead of requiring a game reload
 - Support for animated textures (like Aerith's waterfall, light fading, etc.)
@@ -74,13 +74,10 @@ We are always open for contributions via PRs, and in case you want to join the c
 - Support for external ambient audio effects
 - Support for external movie audio files (allows multiple videos to share the same audio)
 - Support for external movie voice acting (dedicated audio layer only for voice acting on top of movies)
-- Steam 2013 and 2026 Rerelease achievements can be unlocked while playing within FFNx
+- Steam achievements can be unlocked while playing within FFNx
 - Real-time light engine - You can now feel the game visually like never before
 - Real-time camera control in battles
 - Analogue controls using the full axis of your left analog stick
-- Steam 2026 Rerelease support: manual conversion actions required
-- GOG support: manual conversion actions required
-- Windows Store support: manual conversion actions required
 
 #### FF8
 - Vibration support
@@ -120,7 +117,7 @@ For a more in-depth documentation feel free to visit the [docs/](docs/) folder.
 If you're curious to know, FFNx makes use of:
 
 - C++ code base
-- Latest MSVC available on [Visual Studio 2026 Community Edition](https://visualstudio.microsoft.com/vs/features/cplusplus/)
+- Latest MSVC available on [Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/vs/features/cplusplus/)
 - [vcpkg](https://vcpkg.io/) (dependency manager)
 - [CMake](https://cmake.org/) (make files)
 - [BGFX](https://github.com/bkaradzic/bgfx) (backend renderer)
@@ -139,7 +136,6 @@ If you're curious to know, FFNx makes use of:
 - [openpsf](https://github.com/myst6re/openpsf) (MINIPSF emulation engine to playback PSX/PS2 music files)
 - [Steamworks SDK](https://github.com/julianxhokaxhiu/SteamworksSDKCI) (support achievements for the Steam editions of games)
 - [mimalloc](https://github.com/microsoft/mimalloc) (a compact general purpose allocator with excellent performance)
-- [SDL](https://libsdl.org/) using Gamepad API for enhanced controller support
 
 ## How to build
 
@@ -158,7 +154,9 @@ Once the project is built you can find the output in this path: `.build/bin`
 >
 > FFNx uses vcpkg as a package manager to resolve dependencies. Failing to follow these steps will result in build errors.
 
-0. Clone this repository using the `--recursive` flag, eg. `git clone --recursive https://github.com/julianxhokaxhiu/FFNx.git`
+0. Clone the [vcpkg](https://vcpkg.io) project in the root folder of your `C:` drive (`git clone https://github.com/Microsoft/vcpkg.git`)
+1. Go inside the `C:\vcpkg` folder and double click `bootstrap-vcpkg.bat`
+2. Open a `cmd` window in `C:\vcpkg` and run the following command: `vcpkg integrate install`
 
 ### NuGet
 
@@ -170,8 +168,8 @@ Once the project is built you can find the output in this path: `.build/bin`
 1. [Create a Personal Access token ( classic )](https://github.com/settings/tokens/new) with the `write:packages` permission.
 2. Open a `cmd` window and run the following commands ( replace `YOUR_GITHUB_USERNAME` and `YOUR_GITHUB_PAT` accordingly ):
 ```pwsh
-$ nuget sources add -Name github -Source "https://nuget.pkg.github.com/YOUR_GITHUB_USERNAME/index.json" -Username YOUR_GITHUB_USERNAME -Password YOUR_GITHUB_PAT -StorePasswordInClearText
-$ nuget setApiKey YOUR_GITHUB_PAT -Source "https://nuget.pkg.github.com/YOUR_GITHUB_USERNAME/index.json"
+$ nuget sources add -Name github -Source "https://nuget.pkg.github.com/julianxhokaxhiu/index.json" -Username YOUR_GITHUB_USERNAME -Password YOUR_GITHUB_PAT -StorePasswordInClearText
+$ nuget setApiKey YOUR_GITHUB_PAT -Source "https://nuget.pkg.github.com/julianxhokaxhiu/index.json"
 ```
 
 ### Visual Studio
@@ -179,16 +177,13 @@ $ nuget setApiKey YOUR_GITHUB_PAT -Source "https://nuget.pkg.github.com/YOUR_GIT
 > **Please note:**
 >
 > By default Visual Studio will pick the **x86-Release** build configuration, but you can choose any other profile available.
-> FFNx uses vcpkg as a package manager to resolve dependencies. Failing to follow these steps will result in build errors.
 
 0. Download the the latest [Visual Studio Community](https://visualstudio.microsoft.com/vs/community/) installer
 1. Run the installer and import this [.vsconfig](.vsconfig) file in the installer to pick the components required to build this project
 2. Make sure you select the English Language pack in the language list before clicking Install
-3. Go inside the [`vcpkg`](./vcpkg) folder and double click `bootstrap-vcpkg.bat`
-4. Open a `cmd` window in [`vcpkg`](./vcpkg) and run the following command: `vcpkg integrate install`
-5. Once installed, open this repository **as a folder** in Visual Studio
-6. Choose as preset in the status bar the one you desire
-7. Click the `Build` button
+3. Once installed, open this repository **as a folder** in Visual Studio
+4. Choose as preset in the status bar the one you desire
+5. Click the `Build` button
 
 ### Visual Studio Code
 
@@ -215,8 +210,9 @@ To build from the terminal (example with *RelWithDebInfo*):
 - For dependency use: `cmake --preset RelWithDebInfo`
 - For building the project: `cmake --build --preset RelWithDebInfo`
 
-**NOTE**: Make sure to use the `cmake` executable that comes from Visual Studio
-(e.g. `C:\Program Files\Microsoft Visual Studio\2026\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe`)
+**NOTICE**: For the dependency step, make sure that PATH variable does not contain any UNIX command tools since vcpkg build process is based on UNIX tools.
+Also on terminal it might not auto detect the kernel32_lib, so pass it with `-DCMAKE_LIBRARY_PATH=%kernel32_lib%`
+(e.g. `cmake --preset RelWithDebInfo -DCMAKE_LIBRARY_PATH="C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86"`)
 
 ## Auto-Formatting
 
@@ -318,7 +314,7 @@ I'm sure I forgot many others. In case you feel you're missing here, feel free t
 
 ## License
 
-FFNx is released under GPLv3 license. You can get a copy of the license here: [COPYING.TXT](COPYING.TXT)
+FFNx is released under GPLv3 license. You can get a copy of the license here: [COPYING.txt](COPYING.txt)
 
 If you paid for FFNx, remember to ask for a refund from the person who sold you a copy. Also make sure you get a copy of the source code (if it was provided as binary only).
 

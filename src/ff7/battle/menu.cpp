@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -37,6 +37,9 @@ namespace ff7::battle
         battle_depth_clear();
 
         if (enable_time_cycle) newRenderer.setTimeFilterEnabled(false);
+
+        // NOTE: Enemy name injection moved to load_battle_stage() to run BEFORE rendering
+        // This avoids race conditions with the text renderer
     }
 
     void battle_depth_clear()

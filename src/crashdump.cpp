@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -20,12 +20,10 @@
 /****************************************************************************/
 
 #include <shlwapi.h>
-#include <commctrl.h>
 
 #include "audio.h"
 
 #include "crashdump.h"
-#include "utils.h"
 
 // FF7 save file checksum, original by dziugo
 int ff7_checksum(void* qw)
@@ -53,14 +51,6 @@ int ff7_checksum(void* qw)
 }
 
 static const char save_name[] = "\x25" "MERGENCY" "\x00\x33" "AVE" "\xFF";
-
-HRESULT CALLBACK TaskDialogCallbackProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, LONG_PTR lpRefData) {
-	if (msg == TDN_HYPERLINK_CLICKED) {
-		LPCWSTR url = (LPCWSTR)lParam;
-		ShellExecuteW(NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
-	}
-	return S_OK;
-}
 
 LONG WINAPI ExceptionHandler(EXCEPTION_POINTERS *ep)
 {
@@ -118,7 +108,13 @@ LONG WINAPI ExceptionHandler(EXCEPTION_POINTERS *ep)
 				MiniDumpWithUnloadedModules |
 				MiniDumpWithThreadInfo),
 			&mdei, NULL, NULL)) {
-			ffnx_trace("MiniDumpWriteDump failed with error: %ls\n", GetErrorMessage(GetLastError()));
+			wchar_t buf[256];
+
+			FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+				NULL, GetLastError(), MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
+				buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+
+			ffnx_trace("MiniDumpWriteDump failed with error: %ls\n", buf);
 		}
 	}
 
@@ -161,16 +157,7 @@ LONG WINAPI ExceptionHandler(EXCEPTION_POINTERS *ep)
 
 	ffnx_error("Unhandled Exception. See dumped information above.\n");
 
-	TASKDIALOGCONFIG config = { sizeof(config) };
-	config.hwndParent = gameHwnd;
-	config.dwFlags = TDF_ENABLE_HYPERLINKS;
-	config.pszWindowTitle = L"Something went wrong";
-	config.pszMainInstruction = L"Game crashed :(";
-	config.pszContent = L"Something unexpected happened and unfortunately the game crashed.\n\nFeel free to visit <a href=\"https://github.com/julianxhokaxhiu/FFNx/blob/master/docs/faq.md\">this link</a> to know about further next steps you can take.";
-	config.pszMainIcon = TD_ERROR_ICON;
-	config.pfCallback = TaskDialogCallbackProc;
-
-	TaskDialogIndirect(&config, NULL, NULL, NULL);
+	MessageBoxA(gameHwnd, "Feel free to visit this link to know about further next steps you can take: https://github.com/julianxhokaxhiu/FFNx/blob/master/docs/faq.md", "Game crashed :(", MB_ICONERROR | MB_OK);
 
 	// Cleanup the audio device
 	nxAudioEngine.cleanup();

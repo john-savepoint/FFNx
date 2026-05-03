@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -49,11 +49,6 @@ namespace ff7::field
     inline bool is_fieldmap_wide()
     {
         return widescreen_enabled && widescreen.getMode() != WM_DISABLED;
-    }
-
-    inline bool is_fieldmap_uncropped()
-    {
-        return enable_uncrop && widescreen.getMode() != WM_DISABLED;
     }
 
     inline float field_get_linear_interpolated_value_float(float initial_value, float final_value, int n_steps, int step_idx)

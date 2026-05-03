@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -76,7 +76,7 @@ void save_texture(const void *data, uint32_t dataSize, uint32_t width, uint32_t 
 	char filename[sizeof(basedir) + 1024];
 	uint64_t hash;
 
-	if (!save_textures && !save_textures_legacy) {
+	if (!save_textures) {
 		ffnx_warning("Save texture skipped because the option \"save_textures\" is disabled (name=%s).\n", name);
 
 		return;
@@ -129,7 +129,7 @@ uint32_t load_texture_helper(char* name, uint32_t* width, uint32_t* height, bool
 
 	if (ret)
 	{
-		if (trace_all || trace_loaders) ffnx_trace("Using texture: %s (textureId=%d)\n", name, ret);
+		if (trace_all || trace_loaders) ffnx_trace("Using texture: %s\n", name);
 	}
 
 	return ret;
@@ -155,11 +155,59 @@ uint32_t load_normal_texture(const void* data, uint32_t dataSize, const char* na
 			_snprintf(filename, sizeof(filename), "%s/%s/%s_%02i.%s", basedir, tex_path.c_str(), name, palette_index, mod_ext[idx].c_str());
 		}
 
-		ret = load_texture_helper(filename, width, height, mod_ext[idx] == "png", true);
+		// Try loading SDF variant first if SDF fonts are enabled
+		if (enable_sdf_fonts)
+		{
+			char sdf_filename[sizeof(basedir) + 1024]{ 0 };
+
+			// Insert "_sdf" before the file extension
+			char* dot = strrchr(filename, '.');
+			if (dot != nullptr)
+			{
+				size_t base_len = dot - filename;
+				size_t ext_len = strlen(dot);
+
+				// Ensure we have enough space: base + "_sdf" + extension + null terminator
+				if (base_len + 4 + ext_len + 1 < sizeof(sdf_filename))
+				{
+					// Build SDF filename: base_sdf.ext
+					memcpy(sdf_filename, filename, base_len);
+					memcpy(sdf_filename + base_len, "_sdf", 4);
+					memcpy(sdf_filename + base_len + 4, dot, ext_len + 1); // +1 for null terminator
+
+					if (trace_all) ffnx_trace("Trying SDF texture: %s\n", sdf_filename);
+
+					// Try loading the SDF variant
+					ret = load_texture_helper(sdf_filename, width, height, mod_ext[idx] == "png", true);
+
+					if (ret)
+					{
+						gl_set->is_sdf = 1;
+						newRenderer.registerSDFTexture(ret, true);
+						if (trace_all) ffnx_trace("Created external SDF texture: %u from %s\n", ret, sdf_filename);
+						break;
+					}
+					else
+					{
+						if (trace_all) ffnx_trace("SDF texture not found, trying regular: %s\n", filename);
+					}
+				}
+			}
+		}
+
+		// If SDF variant not found, try regular texture
+		if (!ret)
+		{
+			ret = load_texture_helper(filename, width, height, mod_ext[idx] == "png", true);
+		}
 
 		if(ret)
 		{
-			if (trace_all) ffnx_trace("Created external texture: %u from %s\n", ret, filename);
+			// Only log if not already logged as SDF
+			if (!gl_set->is_sdf && trace_all)
+			{
+				ffnx_trace("Created external texture: %u from %s\n", ret, filename);
+			}
 			break;
 		}
 	}

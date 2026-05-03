@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -29,6 +29,7 @@
 #include "../../log.h"
 #include "../../patch.h"
 #include "../../common.h"
+#include "../../cfg.h"
 #include "../widescreen.h"
 #include "../defs.h"
 
@@ -91,9 +92,6 @@ namespace ff7::field
             {
                 if(i >= 24) blend_mode = 0;
                 else if(i >= 15) blend_mode = 1;
-
-                // fr_e map uses this blend mode for these specific texture slots
-                if(i >= 15 && i <= 18 && *common_externals.current_field_id == 347) blend_mode = 2;
             }
             else if(ff7_externals.field_layers[i]->type == 2)
             {
@@ -157,11 +155,8 @@ namespace ff7::field
         if(widescreen_enabled)
         {
             x -= abs(wide_viewport_x);
-            width += (wide_viewport_width - game_width);
-        }
-        if(enable_uncrop)
-        {
             y -= ff7_field_center ? 16 : 0;
+            width += (wide_viewport_width - game_width);
             height += 32;
         }
         ff7_externals.field_sub_63AC3F(x, y, width, height);
@@ -174,86 +169,6 @@ namespace ff7::field
         field_event_data_array[*ff7_externals.field_player_model_id].movement_speed = original_movement_speed / common_frame_multiplier;
         ff7_externals.field_evaluate_encounter_rate_60B2C6();
         field_event_data_array[*ff7_externals.field_player_model_id].movement_speed = original_movement_speed;
-    }
-
-    void field_animate_3d_models()
-    {
-        field_event_data* field_event_data = (*ff7_externals.field_event_data_ptr);
-        field_animation_data* field_animation_data = *ff7_externals.field_animation_data_ptr;
-
-        for (int i = 0; i < FF7_MAX_NUM_MODEL_ENTITIES; i++)
-        {
-            if (
-                ff7::field::ff7_model_data[i].is_kawai_active
-                && (
-                    (ff7::field::ff7_model_data[i].do_kawai_repeat && field_animation_data[i].kawai_opcode != 0x6)
-                    || (ff7::field::ff7_model_data[i].do_kawai_repeat && field_animation_data[i].kawai_opcode == 0x6)
-                )
-            )
-            {
-                if (
-                    field_event_data[i].opcode_params == ff7::field::ff7_model_data[i].exec_kawai_params
-                    && field_event_data[i].apply_kawai == 2
-                )
-                {
-                    field_event_data[i].apply_kawai = 1;
-                    field_event_data[i].opcode_params = ff7::field::ff7_model_data[i].init_kawai_params;
-                    field_animation_data[i].kawai_opcode = ff7::field::ff7_model_data[i].init_kawai_opcode;
-
-                    if (trace_all || trace_opcodes) ffnx_trace("opcode[KAWAI]: curr_model_id=%d,reinit_subcode=%u,reinit_opcode_params=0x%X\n", i, field_animation_data[i].kawai_opcode, field_event_data[i].opcode_params);
-                }
-                else if (
-                    field_event_data[i].opcode_params == ff7::field::ff7_model_data[i].init_kawai_params
-                    && field_event_data[i].apply_kawai == 2
-                )
-                {
-                    field_event_data[i].apply_kawai = 1;
-                    field_event_data[i].opcode_params = ff7::field::ff7_model_data[i].exec_kawai_params;
-                    field_animation_data[i].kawai_opcode = ff7::field::ff7_model_data[i].exec_kawai_opcode;
-
-                    if (trace_all || trace_opcodes) ffnx_trace("opcode[KAWAI]: curr_model_id=%d,reinit_subcode=%u,reinit_opcode_params=0x%X\n", i, field_animation_data[i].kawai_opcode, field_event_data[i].opcode_params);
-                }
-            }
-        }
-
-        ff7_externals.field_animate_3d_models_6392BB();
-    }
-
-    int ff7_apply_KAWAI_op_code(int sub_code, ff7_hrc_polygon_data *ff7_hrc_polygon_data, ff7_kawai_opcode_params *opcode_params, int model_pos_xy, int model_pos_z, int model_id, int *sub_code_ret)
-    {
-        ff7::field::ff7_kawai_current_model_id = model_id;
-
-        return ff7_externals.field_apply_kawai_op_64A070(sub_code, ff7_hrc_polygon_data, opcode_params, model_pos_xy, model_pos_z, model_id, sub_code_ret);
-    }
-
-    void ff7_field_apply_model_light(ff7_light *global_light, ff7_light *cb_light_polygon_set, hrc_data *hrc_data)
-    {
-        if (hrc_data)
-        {
-            struct hrc_bone *bones = hrc_data->bones;
-            for (int i = 0; i < (signed int)hrc_data->num_bones; ++i)
-            {
-                if (bones->num_rsd > 0)
-                {
-                    struct rsd_array_member *rsd_array = bones->rsd_array;
-                    if (rsd_array)
-                    {
-                        for (int j = 0; j < (signed int)bones->num_rsd; ++j)
-                        {
-                            if (rsd_array->rsd_data)
-                            {
-                                if (ff7::field::ff7_model_data[ff7::field::ff7_kawai_current_model_id].init_kawai_opcode == 0x6 || ff7::field::ff7_model_data[ff7::field::ff7_kawai_current_model_id].exec_kawai_opcode == 0x6)
-                                    rsd_array->rsd_data->polygon_set->light = nullptr;
-                                else
-                                    ((void (__cdecl *)(ff7_light *, struct ff7_polygon_set *))cb_light_polygon_set)(global_light, rsd_array->rsd_data->polygon_set);
-                            }
-                            ++rsd_array;
-                        }
-                    }
-                }
-                ++bones;
-            }
-        }
     }
 
     void ff7_field_hook_init()
@@ -273,9 +188,6 @@ namespace ff7::field
         byte jump_to_OFST_update[] = {0xE9, 0xE6, 0x01, 0x00, 0x00};
         replace_call_function(ff7_externals.field_update_models_positions + 0x7C, ff7_field_update_models_rotation_new);
         memcpy_code(ff7_externals.field_update_models_positions + 0x81, jump_to_OFST_update, sizeof(jump_to_OFST_update));
-
-        // woa_* background animation fix
-        replace_call_function(ff7_externals.field_loop_sub_63C17F + 0x1A6, ff7_field_update_background_original);
 
         if(ff7_fps_limiter >= FPS_LIMITER_30FPS)
         {
@@ -298,12 +210,12 @@ namespace ff7::field
                 replace_call_function(ff7_externals.field_update_models_positions + 0x90F, ff7_field_evaluate_encounter_rate);
 
                 // Text box message fix
-                patch_code_byte(ff7_externals.field_text_box_window_paging_631945 + 0xFD, 0x5 + common_frame_multiplier / 2);
-                patch_divide_code<byte>(ff7_externals.field_text_box_window_paging_631945 + 0x100, common_frame_multiplier);
-                patch_divide_code<WORD>(ff7_externals.field_text_box_window_paging_631945 + 0x111, common_frame_multiplier);
-                patch_code_byte(ff7_externals.field_text_box_window_paging_631945 + 0x141, 0x4 + common_frame_multiplier / 2);
-                patch_code_byte(ff7_externals.field_text_box_window_opening_6317A9 + 0x3D, 0x2 + common_frame_multiplier / 2);
-                patch_code_byte(ff7_externals.field_text_box_window_opening_6317A9 + 0xD2, 0x2 + common_frame_multiplier / 2);
+                patch_code_byte((uint32_t)ff7_externals.field_text_box_window_paging_631945 + 0xFD, 0x5 + common_frame_multiplier / 2);
+                patch_divide_code<byte>((uint32_t)ff7_externals.field_text_box_window_paging_631945 + 0x100, common_frame_multiplier);
+                patch_divide_code<WORD>((uint32_t)ff7_externals.field_text_box_window_paging_631945 + 0x111, common_frame_multiplier);
+                patch_code_byte((uint32_t)ff7_externals.field_text_box_window_paging_631945 + 0x141, 0x4 + common_frame_multiplier / 2);
+                patch_code_byte((uint32_t)ff7_externals.field_text_box_window_opening_6317A9 + 0x3D, 0x2 + common_frame_multiplier / 2);
+                patch_code_byte((uint32_t)ff7_externals.field_text_box_window_opening_6317A9 + 0xD2, 0x2 + common_frame_multiplier / 2);
                 patch_code_byte(ff7_externals.field_text_box_window_closing_632EB8 + 0x64, 0x2 + common_frame_multiplier / 2);
                 patch_code_byte(ff7_externals.field_text_box_window_closing_632EB8 + 0xBF, 0x2 + common_frame_multiplier / 2);
                 patch_divide_code<short>(ff7_externals.field_text_box_window_reverse_paging_632CAA + 0x42, common_frame_multiplier);
@@ -320,10 +232,43 @@ namespace ff7::field
 
             // Smooth background movement for both 30 fps mode and 60 fps mode
             replace_call_function(ff7_externals.field_draw_everything + 0x34, ff7_field_set_world_coordinate_640EB7);
-            replace_call_function(ff7_externals.field_loop_sub_63C17F + 0x1A6, ff7_field_update_background_smooth);
+            replace_call_function(ff7_externals.field_loop_sub_63C17F + 0x1A6, ff7_field_update_background);
             replace_call_function(ff7_externals.compute_and_submit_draw_gateways_arrows_64DA3B + 0x357, ff7_field_submit_draw_arrow);
             replace_call_function(ff7_externals.compute_and_submit_draw_gateways_arrows_64DA3B + 0x63C, ff7_field_submit_draw_arrow);
             replace_call_function(ff7_externals.field_submit_draw_pointer_hand_60D572 + 0x284, ff7_field_submit_draw_cursor);
+        }
+
+        // Also hook cursor for Japanese edition even without fps limiter
+        // This is safe because ff7_field_submit_draw_cursor checks ff7_japanese_edition internally
+        if (ff7_japanese_edition && ff7_fps_limiter < FPS_LIMITER_30FPS)
+        {
+            replace_call_function(ff7_externals.field_submit_draw_pointer_hand_60D572 + 0x284, ff7_field_submit_draw_cursor);
+        }
+
+        // Patch ASK cursor Y calculation
+        // Original: C1 E0 04 (shl eax, 4 = multiply by 16 for internal 32px line height)
+        // Change to: 6B C0 0D (imul eax, eax, 13) for 26px line height (26/2=13)
+        if (ff7_japanese_edition)
+        {
+            unsigned char* patch_addr = (unsigned char*)ff7_externals.field_ask_cursor_y_multiply_instruction;
+
+            // Verify we're patching the right instruction (should be C1 E0 04 = shl eax, 4)
+            if (patch_addr[0] == 0xC1 && patch_addr[1] == 0xE0 && patch_addr[2] == 0x04)
+            {
+                DWORD old_protect;
+                VirtualProtect(patch_addr, 3, PAGE_EXECUTE_READWRITE, &old_protect);
+                patch_addr[0] = 0x6B;  // imul
+                patch_addr[1] = 0xC0;  // eax, eax
+                patch_addr[2] = 0x0D;  // 13 (internal line height for 26px)
+                VirtualProtect(patch_addr, 3, old_protect, &old_protect);
+
+                ffnx_info("Patched ASK cursor Y at 0x%X: shl 4 -> imul 13\n", (uint32_t)patch_addr);
+            }
+            else
+            {
+                ffnx_warning("ASK cursor Y patch: unexpected bytes at 0x%X: %02X %02X %02X (expected C1 E0 04)\n",
+                    (uint32_t)patch_addr, patch_addr[0], patch_addr[1], patch_addr[2]);
+            }
         }
 
         // Movie model animation fps fix
@@ -356,16 +301,5 @@ namespace ff7::field
         // Others fps fix
         patch_code_dword((uint32_t)&common_externals.execute_opcode_table[WAIT], (DWORD)&opcode_script_WAIT);
         replace_function(ff7_externals.sub_611BAE, opcode_IFSW_compare_sub);
-
-        // Fix run emulation when using the analogue key for NPCs
-        patch_code_dword((uint32_t)&common_externals.execute_opcode_table[IFKEY], (DWORD)&opcode_script_IFKEY);
-
-        // Fix KAWAI LIGHT opcode animation
-        replace_call_function(ff7_externals.field_main_loop + 0xF6, field_animate_3d_models);
-        replace_call_function((uint32_t)ff7_externals.field_animate_3d_models_6392BB + 0x726, ff7_apply_KAWAI_op_code);
-        replace_function(ff7_externals.field_apply_model_light_sub_685028, ff7_field_apply_model_light);
-
-        // Fix FF7 2026 rerelease crash after battle
-        patch_code_dword((uint32_t)&common_externals.execute_opcode_table[VISI], (DWORD)&opcode_script_VISI);
     }
 }

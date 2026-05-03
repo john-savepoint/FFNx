@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -122,6 +122,21 @@ void gl_set_texture(uint32_t texture, struct gl_texture_set* gl_set)
 	{
 		for (short slot = RendererTextureSlot::TEX_NML; slot < RendererTextureSlot::COUNT; slot++)
 			newRenderer.useTexture(texture > 0 ? gl_set->additional_textures[slot] : 0, slot);
+
+		// Select SDF shader if this is an SDF texture
+		if (enable_sdf_fonts && gl_set->is_sdf)
+		{
+			newRenderer.setSDFMode(true);
+			if(trace_all) ffnx_trace("gl_set_texture: enabled SDF mode for texture %i\n", texture);
+		}
+		else
+		{
+			newRenderer.setSDFMode(false);
+		}
+	}
+	else
+	{
+		newRenderer.setSDFMode(false);
 	}
 
 	current_state.texture_handle = texture;

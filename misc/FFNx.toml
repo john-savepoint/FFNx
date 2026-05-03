@@ -709,6 +709,14 @@ ff7_external_opening_music = false
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ff7_field_center = true
 
+# Native Japanese edition
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# This flag will force the game to use the native Japanese font rendering.
+# Native eStore release will auto-enable this flag.
+# NOTE: This WILL NOT work on non-Japanese releases. You need the official Japanese release to make use of it.
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ff7_japanese_edition = false
+
 ## MODDER OPTIONS - These options are mostly useful to modders and should not be enabled during normal play.
 
 # This is the path where your savefiles will be read.
@@ -722,6 +730,48 @@ save_path = "save"
 # NOTE: Models have to be patched to support this feature. Vanilla models work out of the box.
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ff7_advanced_blinking = false
+
+# CHARACTER PORTRAIT ANIMATIONS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Enable animated character portraits in the menu
+# Requires sprite sheet files: mods/Textures/menu/{character}_anim.png
+# Sprite sheets should be 1024×1024 with 8×8 grid (64 frames)
+# Default: true
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+char_portrait_anim_enable = true
+
+# TITLE SCREEN VIDEO
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Enable animated title screen video instead of static image
+# Requires video file at the specified path
+# Default: true
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+title_video_enable = true
+
+# Path to title screen video (relative to FF7 directory)
+# Default: "movies/title_cinematic.mp4"
+title_video_path = "movies/title_cinematic.mp4"
+
+# Loop video indefinitely on title screen
+# Default: true
+title_video_loop = true
+
+# Video audio volume (0.0 = mute, 1.0 = full volume)
+# Default: 0.0 (muted to avoid conflicts with menu music)
+title_video_audio = 0.0
+
+# PROGRESS-BASED TITLE VARIATIONS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Use different title screen videos based on game progress
+# Default: true
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~
+title_video_progress_based = true
+
+# Title video paths for different game stages
+title_video_early_game = "movies/title_midgar.mp4"
+title_video_world_map = "movies/title_world.mp4"
+title_video_meteor = "movies/title_meteor.mp4"
+title_video_final = "movies/title_final.mp4"
 
 ###############################################################################
 # OPTIONS ONLY FOR FF8

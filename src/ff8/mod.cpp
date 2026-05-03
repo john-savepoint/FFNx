@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2023 myst6re                                            //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -48,8 +48,14 @@ bool TextureImage::createImage(const char *filename, int originalTexturePixelWid
 	const char *extension = strrchr(filename, '.');
 	if (extension != nullptr && stricmp(extension + 1, "png") == 0) {
 		// Load PNG using libPNG
-		_image = loadPng(&defaultAllocator, filename, targetFormat);
-		setLod(0);
+		bimg::ImageMip mip;
+		if (loadPng(filename, mip, targetFormat) && Renderer::doesItFitInMemory(mip.m_size + 1))
+		{
+			_image = bimg::imageAlloc(&defaultAllocator, mip.m_format, mip.m_width, mip.m_height, mip.m_depth, 1, false, false, mip.m_data);
+			setLod(0);
+
+			driver_free((void *)mip.m_data);
+		}
 	} else if (extension != nullptr && stricmp(extension + 1, "dds") == 0) {
 		// Load DDS using DirectXTex
 		DirectX::TexMetadata metadata;
@@ -62,7 +68,7 @@ bool TextureImage::createImage(const char *filename, int originalTexturePixelWid
 			setLod(0);
 		}
 	} else {
-		_image = loadImageContainer(&defaultAllocator, filename, targetFormat);
+		_image = loadImageContainer(&defaultAllocator, filename, bimg::TextureFormat::BGRA8);
 
 		if (_image != nullptr)
 		{
@@ -535,7 +541,7 @@ TexturePacker::TextureTypes TextureBackground::drawToImage(
 	const bimg::ImageMip &mip = _texture.mip();
 	const uint32_t *imgData = reinterpret_cast<const uint32_t *>(mip.m_data);
 	const uint8_t imgScale = _texture.scale();
-	const uint32_t imgWidth = mip.m_width / imgScale;
+	const uint32_t imgWidth = mip.m_width / imgScale, imgHeight = mip.m_height / imgScale;
 
 	const uint8_t cols = targetW / TILE_SIZE, rows = targetH / TILE_SIZE;
 	const uint8_t colsBpp = TILE_SIZE / (1 << uint16_t(targetBpp));
@@ -593,7 +599,7 @@ TexturePacker::TextureTypes TextureBackground::drawToImage(
 			const int col = tileId % _colsCount, row = tileId / _colsCount;
 
 			drawImage(
-				imgData, imgWidth, imgScale,
+				imgData, imgWidth / imgScale, imgScale,
 				targetRgba, targetW, targetScale,
 				col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE,
 				x * TILE_SIZE, y * TILE_SIZE

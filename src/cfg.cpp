@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -88,7 +88,6 @@ long window_size_x;
 long window_size_y;
 long internal_resolution_scale;
 long aspect_ratio;
-bool enable_uncrop;
 bool fullscreen;
 bool borderless;
 long refresh_rate;
@@ -97,11 +96,56 @@ bool mdef_fix;
 long enable_antialiasing;
 bool enable_anisotropic;
 bool enable_bilinear;
+bool enable_sdf_fonts;
+float sdf_pixel_range;
+float sdf_thickness;
+float sdf_shadow_offset;
+float sdf_shadow_opacity;
+
+// SDF Extended Parameters
+float sdf_shadow_offset_x;
+float sdf_shadow_offset_y;
+float sdf_shadow_blur;
+float sdf_outline_width;
+float sdf_outline_opacity;
+float sdf_inner_outline_width;
+float sdf_inner_outline_opacity;
+float sdf_glow_radius;
+float sdf_glow_intensity;
+
+// SDF Colors
+bool sdf_text_color_enable;
+float sdf_text_color_r;
+float sdf_text_color_g;
+float sdf_text_color_b;
+float sdf_shadow_color_r;
+float sdf_shadow_color_g;
+float sdf_shadow_color_b;
+float sdf_outline_color_r;
+float sdf_outline_color_g;
+float sdf_outline_color_b;
+float sdf_inner_outline_color_r;
+float sdf_inner_outline_color_g;
+float sdf_inner_outline_color_b;
+float sdf_glow_color_r;
+float sdf_glow_color_g;
+float sdf_glow_color_b;
+
+// SDF Transforms
+float sdf_italic_slant;
+float sdf_skew_x;
+float sdf_skew_y;
+
+// SDF Animations
+float sdf_anim_speed;
+bool sdf_color_cycle_enable;
+bool sdf_pulse_enable;
+float sdf_cycle_offset;
+
 bool enable_lighting;
 bool prefer_lighting_cpu_calculations;
 long game_lighting;
 bool enable_time_cycle;
-bool enable_external_mesh;
 bool enable_worldmap_external_mesh;
 bool ff7_external_opening_music;
 bool more_debug;
@@ -128,7 +172,6 @@ std::vector<std::string> disable_animated_textures_on_field;
 long ff7_fps_limiter;
 bool ff7_footsteps;
 bool ff7_field_center;
-bool use_sdl_gamepad;
 bool enable_analogue_controls;
 bool enable_inverted_vertical_camera_controls;
 bool enable_inverted_horizontal_camera_controls;
@@ -146,7 +189,6 @@ bool ff8_worldmap_internal_highres_textures;
 bool ff8_fix_uv_coords_precision;
 bool ff8_external_music_force_original_filenames;
 bool ff8_use_gamepad_icons;
-bool ff8_always_capture_input;
 long ff8_fps_limiter;
 std::string app_path;
 std::string data_drive;
@@ -157,8 +199,16 @@ long external_voice_volume;
 long external_ambient_volume;
 long ffmpeg_video_volume;
 bool ff7_advanced_blinking;
-long display_index;
-long ff8_high_res_font;
+bool char_portrait_anim_enable;
+bool title_video_enable;
+std::string title_video_path;
+bool title_video_loop;
+float title_video_audio;
+bool title_video_progress_based;
+std::string title_video_early_game;
+std::string title_video_world_map;
+std::string title_video_meteor;
+std::string title_video_final;
 
 std::vector<std::string> get_string_or_array_of_strings(const toml::node_view<toml::node> &node)
 {
@@ -255,7 +305,6 @@ void read_cfg()
 	window_size_y = config["window_size_y"].value_or(0);
 	internal_resolution_scale = config["internal_resolution_scale"].value_or(0);
 	aspect_ratio = config["aspect_ratio"].value_or(0);
-	enable_uncrop = config["enable_uncrop"].value_or(false);
 	fullscreen = config["fullscreen"].value_or(false);
 	borderless = config["borderless"].value_or(false);
 	refresh_rate = config["refresh_rate"].value_or(0);
@@ -264,11 +313,56 @@ void read_cfg()
 	enable_antialiasing = config["enable_antialiasing"].value_or(0);
 	enable_anisotropic = config["enable_anisotropic"].value_or(true);
 	enable_bilinear = config["enable_bilinear"].value_or(false);
+	enable_sdf_fonts = config["enable_sdf_fonts"].value_or(false);
+	sdf_pixel_range = config["sdf_pixel_range"].value_or(4.0);
+	sdf_thickness = config["sdf_thickness"].value_or(0.5);
+	sdf_shadow_offset = config["sdf_shadow_offset"].value_or(1.0);
+	sdf_shadow_opacity = config["sdf_shadow_opacity"].value_or(0.5);
+
+	// SDF Extended Parameters
+	sdf_shadow_offset_x = config["sdf_shadow_offset_x"].value_or(1.0);
+	sdf_shadow_offset_y = config["sdf_shadow_offset_y"].value_or(1.0);
+	sdf_shadow_blur = config["sdf_shadow_blur"].value_or(0.0);
+	sdf_outline_width = config["sdf_outline_width"].value_or(0.0);
+	sdf_outline_opacity = config["sdf_outline_opacity"].value_or(1.0);
+	sdf_inner_outline_width = config["sdf_inner_outline_width"].value_or(0.0);
+	sdf_inner_outline_opacity = config["sdf_inner_outline_opacity"].value_or(1.0);
+	sdf_glow_radius = config["sdf_glow_radius"].value_or(0.0);
+	sdf_glow_intensity = config["sdf_glow_intensity"].value_or(0.0);
+
+	// SDF Colors
+	sdf_text_color_enable = config["sdf_text_color_enable"].value_or(false);
+	sdf_text_color_r = config["sdf_text_color_r"].value_or(1.0);
+	sdf_text_color_g = config["sdf_text_color_g"].value_or(1.0);
+	sdf_text_color_b = config["sdf_text_color_b"].value_or(1.0);
+	sdf_shadow_color_r = config["sdf_shadow_color_r"].value_or(0.0);
+	sdf_shadow_color_g = config["sdf_shadow_color_g"].value_or(0.0);
+	sdf_shadow_color_b = config["sdf_shadow_color_b"].value_or(0.0);
+	sdf_outline_color_r = config["sdf_outline_color_r"].value_or(1.0);
+	sdf_outline_color_g = config["sdf_outline_color_g"].value_or(1.0);
+	sdf_outline_color_b = config["sdf_outline_color_b"].value_or(1.0);
+	sdf_inner_outline_color_r = config["sdf_inner_outline_color_r"].value_or(1.0);
+	sdf_inner_outline_color_g = config["sdf_inner_outline_color_g"].value_or(1.0);
+	sdf_inner_outline_color_b = config["sdf_inner_outline_color_b"].value_or(1.0);
+	sdf_glow_color_r = config["sdf_glow_color_r"].value_or(1.0);
+	sdf_glow_color_g = config["sdf_glow_color_g"].value_or(0.5);
+	sdf_glow_color_b = config["sdf_glow_color_b"].value_or(0.0);
+
+	// SDF Transforms
+	sdf_italic_slant = config["sdf_italic_slant"].value_or(0.0);
+	sdf_skew_x = config["sdf_skew_x"].value_or(0.0);
+	sdf_skew_y = config["sdf_skew_y"].value_or(0.0);
+
+	// SDF Animations
+	sdf_anim_speed = config["sdf_anim_speed"].value_or(1.0);
+	sdf_color_cycle_enable = config["sdf_color_cycle_enable"].value_or(false);
+	sdf_pulse_enable = config["sdf_pulse_enable"].value_or(false);
+	sdf_cycle_offset = config["sdf_cycle_offset"].value_or(10.0);
+
 	enable_lighting = config["enable_lighting"].value_or(false);
 	prefer_lighting_cpu_calculations = config["prefer_lighting_cpu_calculations"].value_or(true);
 	game_lighting = config["game_lighting"].value_or(GAME_LIGHTING_PER_VERTEX);
 	enable_time_cycle = config["enable_time_cycle"].value_or(false);
-	enable_external_mesh = config["enable_external_mesh"].value_or(false);
 	enable_worldmap_external_mesh = config["enable_worldmap_external_mesh"].value_or(false);
 	ff7_external_opening_music = config["ff7_external_opening_music"].value_or(false);
 	more_debug = config["more_debug"].value_or(false);
@@ -295,7 +389,12 @@ void read_cfg()
 	ff7_fps_limiter = config["ff7_fps_limiter"].value_or(FPS_LIMITER_DEFAULT);
 	ff7_footsteps = config["ff7_footsteps"].value_or(false);
 	ff7_field_center = config["ff7_field_center"].value_or(true);
-	use_sdl_gamepad = config["use_sdl_gamepad"].value_or(false);
+	ff7_japanese_edition = config["ff7_japanese_edition"].value_or(false);
+	ff7_language = config["ff7_language"].value_or("en");
+	// If ff7_japanese_edition is set but ff7_language is default, use "ja" for backwards compatibility
+	if (ff7_japanese_edition && ff7_language == "en") {
+		ff7_language = "ja";
+	}
 	enable_analogue_controls = config["enable_analogue_controls"].value_or(false);
 	enable_inverted_vertical_camera_controls = config["enable_inverted_vertical_camera_controls"].value_or(false);
 	enable_inverted_horizontal_camera_controls = config["enable_inverted_horizontal_camera_controls"].value_or(false);
@@ -314,7 +413,6 @@ void read_cfg()
 	ff8_fix_uv_coords_precision = config["ff8_fix_uv_coords_precision"].value_or(true);
 	ff8_external_music_force_original_filenames = config["ff8_external_music_force_original_filenames"].value_or(false);
 	ff8_use_gamepad_icons = config["ff8_use_gamepad_icons"].value_or(false);
-	ff8_always_capture_input = config["ff8_always_capture_input"].value_or(false);
 	ff8_fps_limiter = config["ff8_fps_limiter"].value_or(FPS_LIMITER_DEFAULT);
 	app_path = config["app_path"].value_or("");
 	data_drive = config["data_drive"].value_or("");
@@ -325,8 +423,16 @@ void read_cfg()
 	external_ambient_volume = config["external_ambient_volume"].value_or(-1);
 	ffmpeg_video_volume = config["ffmpeg_video_volume"].value_or(-1);
 	ff7_advanced_blinking = config["ff7_advanced_blinking"].value_or(false);
-	display_index = config["display_index"].value_or(-1);
-	ff8_high_res_font = config["ff8_high_res_font"].value_or(-1);
+	char_portrait_anim_enable = config["char_portrait_anim_enable"].value_or(true);
+	title_video_enable = config["title_video_enable"].value_or(true);
+	title_video_path = config["title_video_path"].value_or("movies/title_cinematic.mp4");
+	title_video_loop = config["title_video_loop"].value_or(true);
+	title_video_audio = config["title_video_audio"].value_or(0.0f);
+	title_video_progress_based = config["title_video_progress_based"].value_or(true);
+	title_video_early_game = config["title_video_early_game"].value_or("movies/title_midgar.mp4");
+	title_video_world_map = config["title_video_world_map"].value_or("movies/title_world.mp4");
+	title_video_meteor = config["title_video_meteor"].value_or("movies/title_meteor.mp4");
+	title_video_final = config["title_video_final"].value_or("movies/title_final.mp4");
 
 	// Windows x or y size can't be less then 0
 	if (window_size_x < 0) window_size_x = 0;
@@ -360,14 +466,9 @@ void read_cfg()
 	switch (version)
 	{
 	case VERSION_FF7_102_US:
-		if (ff7_japanese_edition)
-		{
-			hext_patching_path += "/ja";
-		}
-		else
-		{
-			hext_patching_path += "/en";
-		}
+		// Use ff7_language for HEXT path selection (supports: en, ja, de, fr, es)
+		// Note: VERSION_FF7_102_US is the English executable which we use for all languages
+		hext_patching_path += "/" + ff7_language;
 		break;
 	case VERSION_FF7_102_FR:
 		hext_patching_path += "/fr";
@@ -432,7 +533,7 @@ void read_cfg()
 
 	// EXTERNAL MOVIE FLAG
 	if (enable_ffmpeg_videos < 0)
-		enable_ffmpeg_videos = 1;
+		enable_ffmpeg_videos = !ff8;
 
 	// EXTERNAL MOVIE EXTENSION
 	if (ffmpeg_video_ext.empty())
@@ -514,6 +615,9 @@ void read_cfg()
 	else
 		external_vibrate_path += "/ff7";
 
+	// WIDESCREEN
+	if (ff8 && aspect_ratio > AR_STRETCH) aspect_ratio = AR_ORIGINAL;
+
 	// VOLUME
 	if (external_music_volume > 100) external_music_volume = 100;
 	if (external_sfx_volume > 100) external_sfx_volume = 100;
@@ -524,7 +628,4 @@ void read_cfg()
 	// GAME LIGHTING
 	if (ff8) game_lighting = GAME_LIGHTING_ORIGINAL;
 	else if (enable_lighting) game_lighting = GAME_LIGHTING_PER_PIXEL;
-
-	// DISPLAY INDEX
-	if (display_index < 1) display_index = -1;
 }

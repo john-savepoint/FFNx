@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -23,8 +23,11 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace ff7::battle
 {
+    // Original function pointers (stored before replacement)
     extern uint32_t g_original_display_battle_action_text;
 
     // Camera
@@ -41,8 +44,18 @@ namespace ff7::battle
     void battle_sub_5C7F94(int param_1, int param_2);
     void display_battle_action_text_sub_6D71FA(short command_id, short action_id);
     int load_scene_bin_chunk(char *filename, int offset, int size, char **out_buffer, void (*callback)(void));
+    void battle_enemy_name_copy_hook(char* dest, char* src);
 
     // Menu
     void battle_menu_enter();
     void draw_ui_graphics_objects_wrapper(int flag, int type);
+
+    // Scene Text (Multi-Language)
+    void init_scene_text();
+    bool needs_text_injection();
+    void inject_scene_text();
+    void patch_scene_block_divisor();
+    void install_enemy_name_hook();
+    void check_and_inject_enemy_names();
+    void reset_enemy_name_injection();
 }

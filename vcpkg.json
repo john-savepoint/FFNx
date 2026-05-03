@@ -1,7 +1,7 @@
 {
   "name": "ffnx",
-  "version": "1.24.3",
-  "builtin-baseline": "c3867e714dd3a51c272826eea77267876517ed99",
+  "version": "1.21.0",
+  "builtin-baseline": "1de2026f28ead93ff1773e6e680387643e914ea1",
   "dependencies": [
     "bgfx",
     {
@@ -66,9 +66,7 @@
     },
     "cmakerc",
     "cgltf",
-    "hwinfo",
-    "cryptopp",
-    "sdl3"
+    "hwinfo"
   ],
   "overrides": [
     {
@@ -78,28 +76,28 @@
     },
     {
       "name": "ffmpeg",
-      "version": "7.1.2",
-      "port-version": 5
+      "version": "6.1.1",
+      "port-version": 10
     },
     {
       "name": "imgui",
-      "version": "1.92.6",
-      "port-version": 0
+      "version": "1.90.7",
+      "port-version": 1
     },
     {
       "name": "libpng",
-      "version": "1.6.55",
-      "port-version": 0
+      "version": "1.6.43",
+      "port-version": 2
     },
     {
       "name": "directxtex",
-      "version": "2025-10-27",
+      "version": "2024-06-04",
       "port-version": 0
     },
     {
       "name": "mimalloc",
-      "version": "3.2.8",
-      "port-version": 0
+      "version": "2.1.2",
+      "port-version": 3
     },
     {
       "name": "openpsf",
@@ -108,8 +106,8 @@
     },
     {
       "name": "pugixml",
-      "version": "1.15",
-      "port-version": 1
+      "version": "1.14",
+      "port-version": 0
     },
     {
       "name": "soloud",
@@ -118,13 +116,13 @@
     },
     {
       "name": "stackwalker",
-      "version": "2023-06-24",
+      "version": "1.2.1",
       "port-version": 0
     },
     {
       "name": "tomlplusplus",
       "version": "3.4.0",
-      "port-version": 1
+      "port-version": 0
     },
     {
       "name": "vgmstream",
@@ -138,18 +136,18 @@
     },
     {
       "name": "xxhash",
-      "version": "0.8.3",
+      "version": "0.8.2",
       "port-version": 0
     },
     {
       "name": "lz4",
-      "version": "1.10.0",
-      "port-version": 0
+      "version": "1.9.4",
+      "port-version": 2
     },
     {
       "name": "cpuinfo",
-      "version": "2025-09-06",
-      "port-version": 0
+      "version": "2022-07-19",
+      "port-version": 3
     },
     {
       "name": "cmakerc",
@@ -158,22 +156,12 @@
     },
     {
       "name": "cgltf",
-      "version": "1.15",
+      "version": "1.14",
       "port-version": 0
     },
     {
       "name": "hwinfo",
       "version": "1.0.0",
-      "port-version": 0
-    },
-    {
-      "name": "cryptopp",
-      "version": "2026-03-02",
-      "port-version": 0
-    },
-    {
-      "name": "sdl3",
-      "version": "3.4.2",
       "port-version": 0
     }
   ]

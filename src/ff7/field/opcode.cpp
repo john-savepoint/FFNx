@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -254,49 +254,6 @@ namespace ff7::field
             if((*ff7_externals.field_global_object_ptr)->fade_speed >= get_frame_multiplier())
                 (*ff7_externals.field_global_object_ptr)->fade_speed /= get_frame_multiplier();
         }
-
-        return ret;
-    }
-
-    int opcode_script_IFKEY()
-    {
-        uint16_t key = get_field_parameter<uint16_t>(0);
-        bool emulate_run = (key & 0x40) == 0x40 && gamepad_analogue_intent == INTENT_RUN;
-
-        if (emulate_run)
-        {
-            ff7_externals.modules_global_object->current_key_input_status |= 0x40;
-            ff7_externals.modules_global_object->field_78 |= 0x40;
-        }
-
-        int ret = call_original_opcode_function(IFKEY);
-
-        if (emulate_run)
-        {
-            ff7_externals.modules_global_object->current_key_input_status &= ~0x40;
-            ff7_externals.modules_global_object->field_78 &= ~0x40;
-        }
-
-        return ret;
-    }
-
-    int opcode_script_VISI()
-    {
-        byte show_entity = get_field_parameter<byte>(0);
-        int ret = call_original_opcode_function(VISI);
-
-        // For unknown reason to us Square forgot a RET opcode in their 2026 flevel code
-        // Inject therefore it back again emulating like it was there to ensure proper script execution.
-        // Remove this patch would lead to an instant crash of the game after first battle.
-        if (
-            ff7_2026_rerelease
-            && (
-                (*common_externals.current_field_id == 116 && *ff7_externals.current_entity_id == 5 && ff7_externals.current_entity_script_id[8 * *ff7_externals.current_entity_id + ff7_externals.current_entity_script_priority[*ff7_externals.current_entity_id]] == 4)
-                || (*common_externals.current_field_id == 401 && *ff7_externals.current_entity_id == 8 && ff7_externals.current_entity_script_id[8 * *ff7_externals.current_entity_id + ff7_externals.current_entity_script_priority[*ff7_externals.current_entity_id]] == 5)
-            )
-            && show_entity == 0
-        )
-            ret = call_original_opcode_function(RET);
 
         return ret;
     }

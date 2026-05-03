@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -49,12 +49,6 @@ namespace ff7::field
             external_data.blinkFrameIndex = BLINKING_FRAMES;
         }
 
-        // Fix woa_* animation after battle by resetting bg position at field enter
-        if (*common_externals.current_field_id == 710 || *common_externals.current_field_id == 711) {
-            (*ff7_externals.field_triggers_header)->bg4_pos_x = 0;
-            (*ff7_externals.field_triggers_header)->bg4_pos_y = 0;
-        }
-
-        if(widescreen_enabled || enable_uncrop) widescreen.initParamsFromConfig();
+        if(widescreen_enabled) widescreen.initParamsFromConfig();
     }
 }

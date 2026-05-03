@@ -296,6 +296,10 @@ void Renderer::updateRendererShaderPaths()
     fragmentFieldShadowPath += ".smooth" + shaderSuffix + ".frag";
     vertexBlitPath += ".flat" + shaderSuffix + ".vert";
     fragmentBlitPath += ".flat" + shaderSuffix + ".frag";
+    vertexSdfPathFlat += ".flat" + shaderSuffix + ".vert";
+    fragmentSdfPathFlat += ".flat" + shaderSuffix + ".frag";
+    vertexSdfPathSmooth += ".smooth" + shaderSuffix + ".vert";
+    fragmentSdfPathSmooth += ".smooth" + shaderSuffix + ".frag";
 }
 
 // Via https://dev.to/pperon/hello-bgfx-4dka
@@ -1024,6 +1028,18 @@ void Renderer::init()
         true
     );
 
+    backendProgramHandles[RendererProgram::SDF_FONT_FLAT] = bgfx::createProgram(
+        getShader(vertexSdfPathFlat.c_str()),
+        getShader(fragmentSdfPathFlat.c_str()),
+        true
+    );
+
+    backendProgramHandles[RendererProgram::SDF_FONT_SMOOTH] = bgfx::createProgram(
+        getShader(vertexSdfPathSmooth.c_str()),
+        getShader(fragmentSdfPathSmooth.c_str()),
+        true
+    );
+
     vertexLayout
         .begin()
         .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
@@ -1081,6 +1097,19 @@ void Renderer::init()
     bgfxUniformHandles[RendererUniform::LIGHT_INV_VIEW_PROJ_TEX_MATRIX] = createUniform("lightInvViewProjTexMatrix", bgfx::UniformType::Mat4);
     bgfxUniformHandles[RendererUniform::VIEW_OFFSET_MATRIX] = createUniform("viewOffsetMatrix", bgfx::UniformType::Mat4);
     bgfxUniformHandles[RendererUniform::INV_VIEW_OFFSET_MATRIX] = createUniform("invViewOffsetMatrix", bgfx::UniformType::Mat4);
+
+    bgfxUniformHandles[RendererUniform::SDF_PARAMS] = createUniform("SDFParams", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_PARAMS2] = createUniform("SDFParams2", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_PARAMS3] = createUniform("SDFParams3", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_PARAMS4] = createUniform("SDFParams4", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_TEXT_COLOR] = createUniform("SDFTextColor", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_SHADOW_COLOR] = createUniform("SDFShadowColor", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_OUTLINE_COLOR] = createUniform("SDFOutlineColor", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_INNER_OUTLINE_COLOR] = createUniform("SDFInnerOutlineColor", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_GLOW_COLOR] = createUniform("SDFGlowColor", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_ANIM_PARAMS] = createUniform("SDFAnimParams", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_ANIM_PARAMS2] = createUniform("SDFAnimParams2", bgfx::UniformType::Vec4);
+    bgfxUniformHandles[RendererUniform::SDF_ATLAS_PARAMS] = createUniform("SDFAtlasParams", bgfx::UniformType::Vec4);
 
     bgfxUniformHandles[RendererUniform::GAME_LIGHTING_FLAGS] = createUniform("gameLightingFlags", bgfx::UniformType::Vec4);
     bgfxUniformHandles[RendererUniform::GAME_GLOBAL_LIGHT_COLOR] = createUniform("gameGlobalLightColor", bgfx::UniformType::Vec4);
@@ -2139,6 +2168,21 @@ void Renderer::useTexture(uint16_t rt, uint32_t slot)
     {
         internalState.texHandlers[slot] = { rt };
         if (slot == RendererTextureSlot::TEX_Y) isTexture(true);
+
+        // Check if this texture is an SDF texture and activate SDF mode
+        if (slot == RendererTextureSlot::TEX_Y && enable_sdf_fonts)
+        {
+            auto it = internalState.sdfTextures.find(rt);
+            if (it != internalState.sdfTextures.end() && it->second)
+            {
+                setSDFMode(true);
+                if (trace_all) ffnx_trace("Renderer::%s: Activated SDF mode for texture %u\n", __func__, rt);
+            }
+            else
+            {
+                setSDFMode(false);
+            }
+        }
     }
     else
     {
@@ -2383,17 +2427,119 @@ void Renderer::doAlphaTest(bool flag)
 
 void Renderer::setInterpolationQualifier(RendererInterpolationQualifier qualifier)
 {
-    switch (qualifier)
+    // Store the base interpolation qualifier but don't override SDF mode
+    // SDF mode will use this to determine SDF_FONT_FLAT vs SDF_FONT_SMOOTH
+    baseInterpolationQualifier = qualifier;
+
+    // Only set the program if we're not in SDF mode
+    // If we ARE in SDF mode, the program is already set to SDF_FONT_FLAT or SDF_FONT_SMOOTH
+    if (backendProgram != RendererProgram::SDF_FONT_FLAT && backendProgram != RendererProgram::SDF_FONT_SMOOTH)
     {
-    case RendererInterpolationQualifier::FLAT:
-        backendProgram = RendererProgram::FLAT;
-        if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: FLAT\n", __func__);
-        break;
-    case RendererInterpolationQualifier::SMOOTH:
-        backendProgram = RendererProgram::SMOOTH;
-        if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SMOOTH\n", __func__);
-        break;
+        switch (qualifier)
+        {
+        case RendererInterpolationQualifier::FLAT:
+            backendProgram = RendererProgram::FLAT;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: FLAT\n", __func__);
+            break;
+        case RendererInterpolationQualifier::SMOOTH:
+            backendProgram = RendererProgram::SMOOTH;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SMOOTH\n", __func__);
+            break;
+        }
     }
+    else
+    {
+        if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: Preserving SDF mode, not changing to %s\n", __func__, qualifier == FLAT ? "FLAT" : "SMOOTH");
+    }
+}
+
+void Renderer::setSDFMode(bool enabled)
+{
+    if (enabled)
+    {
+        // Override current program with SDF version based on interpolation qualifier
+        if (baseInterpolationQualifier == RendererInterpolationQualifier::FLAT)
+        {
+            backendProgram = RendererProgram::SDF_FONT_FLAT;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SDF_FONT_FLAT\n", __func__);
+        }
+        else
+        {
+            backendProgram = RendererProgram::SDF_FONT_SMOOTH;
+            if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: SDF_FONT_SMOOTH\n", __func__);
+        }
+
+        // Set SDF parameters uniforms
+        // SDFParams: x=pixel_range, y=thickness, z=shadow_offset_x, w=shadow_offset_y
+        float sdfParams[4] = { sdf_pixel_range, sdf_thickness, sdf_shadow_offset_x, sdf_shadow_offset_y };
+        setUniform(RendererUniform::SDF_PARAMS, sdfParams);
+
+        // SDFParams2: x=shadow_blur, y=shadow_opacity, z=outline_width, w=outline_opacity
+        float sdfParams2[4] = { sdf_shadow_blur, sdf_shadow_opacity, sdf_outline_width, sdf_outline_opacity };
+        setUniform(RendererUniform::SDF_PARAMS2, sdfParams2);
+
+        // SDFParams3: x=inner_outline_width, y=inner_outline_opacity, z=glow_radius, w=glow_intensity
+        float sdfParams3[4] = { sdf_inner_outline_width, sdf_inner_outline_opacity, sdf_glow_radius, sdf_glow_intensity };
+        setUniform(RendererUniform::SDF_PARAMS3, sdfParams3);
+
+        // Color uniforms
+        float textColor[4] = { sdf_text_color_r, sdf_text_color_g, sdf_text_color_b, sdf_text_color_enable ? 1.0f : 0.0f };
+        setUniform(RendererUniform::SDF_TEXT_COLOR, textColor);
+
+        float shadowColor[4] = { sdf_shadow_color_r, sdf_shadow_color_g, sdf_shadow_color_b, 0.0f };
+        setUniform(RendererUniform::SDF_SHADOW_COLOR, shadowColor);
+
+        float outlineColor[4] = { sdf_outline_color_r, sdf_outline_color_g, sdf_outline_color_b, 0.0f };
+        setUniform(RendererUniform::SDF_OUTLINE_COLOR, outlineColor);
+
+        float innerOutlineColor[4] = { sdf_inner_outline_color_r, sdf_inner_outline_color_g, sdf_inner_outline_color_b, 0.0f };
+        setUniform(RendererUniform::SDF_INNER_OUTLINE_COLOR, innerOutlineColor);
+
+        float glowColor[4] = { sdf_glow_color_r, sdf_glow_color_g, sdf_glow_color_b, 0.0f };
+        setUniform(RendererUniform::SDF_GLOW_COLOR, glowColor);
+
+        // SDFParams4: x=italic_slant, y=skew_x, z=skew_y, w=unused
+        float sdfParams4[4] = { sdf_italic_slant, sdf_skew_x, sdf_skew_y, 0.0f };
+        setUniform(RendererUniform::SDF_PARAMS4, sdfParams4);
+
+        // Animation parameters: x=anim_speed, y=time, z=color_cycle_enable, w=pulse_enable
+        static float animTime = 0.0f;
+        animTime += 0.016f * sdf_anim_speed; // Increment by ~1 frame at 60fps
+        float animParams[4] = { sdf_anim_speed, animTime, sdf_color_cycle_enable ? 1.0f : 0.0f, sdf_pulse_enable ? 1.0f : 0.0f };
+        setUniform(RendererUniform::SDF_ANIM_PARAMS, animParams);
+
+        // Animation parameters 2: x=cycle_offset, y=unused, z=unused, w=unused
+        float animParams2[4] = { sdf_cycle_offset, 0.0f, 0.0f, 0.0f };
+        setUniform(RendererUniform::SDF_ANIM_PARAMS2, animParams2);
+
+        // Set SDF atlas parameters uniform
+        // x: atlas_size (1024), y: grid_size (16), z: cell_size (64), w: unused
+        float sdfAtlasParams[4] = { 1024.0f, 16.0f, 64.0f, 0.0f };
+        setUniform(RendererUniform::SDF_ATLAS_PARAMS, sdfAtlasParams);
+    }
+    else
+    {
+        // Only restore non-SDF program if we're currently using an SDF program
+        if (backendProgram == RendererProgram::SDF_FONT_FLAT || backendProgram == RendererProgram::SDF_FONT_SMOOTH)
+        {
+            if (baseInterpolationQualifier == RendererInterpolationQualifier::FLAT)
+            {
+                backendProgram = RendererProgram::FLAT;
+                if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: Restoring FLAT\n", __func__);
+            }
+            else
+            {
+                backendProgram = RendererProgram::SMOOTH;
+                if (trace_all || trace_renderer) ffnx_trace("Renderer::%s: Restoring SMOOTH\n", __func__);
+            }
+        }
+    }
+}
+
+void Renderer::registerSDFTexture(uint16_t textureId, bool isSDF)
+{
+    internalState.sdfTextures[textureId] = isSDF;
+    if (trace_all) ffnx_trace("Renderer::%s: Registered texture %u as SDF=%d\n", __func__, textureId, isSDF);
 }
 
 void Renderer::setPrimitiveType(RendererPrimitiveType type)

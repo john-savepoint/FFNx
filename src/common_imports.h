@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -131,6 +131,14 @@ struct bgra_color
 	float g;
 	float r;
 	float a;
+};
+
+struct bgra_byte
+{
+	byte b;
+	byte g;
+	byte r;
+	byte a;
 };
 
 struct rgba_color

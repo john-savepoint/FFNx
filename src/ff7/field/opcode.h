@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
@@ -58,10 +58,8 @@ namespace ff7::field
     int opcode_script_WAIT();
     int opcode_script_MVIEF();
     int opcode_script_BGMOVIE();
-    int opcode_script_VISI();
     uint8_t opcode_IFSW_compare_sub();
     int opcode_script_FADE();
-    int opcode_script_IFKEY();
 
     // Thanks for myst6re https://github.com/myst6re/makoureactor/blob/5231723307901043941356ad1e42d26725305edf/core/field/Opcode.h#L71
     enum FieldOpcode {

@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -45,7 +45,6 @@ void ff7_set_battle_menu_state_data_at_full_atb(short param_1, short param_2, sh
 
 // misc
 void ff7_core_game_loop();
-void main_menu_draw_everything_maybe_6C0B91_universal();  // For title video - all editions
 uint32_t get_equipment_stats(uint32_t party_index, uint32_t type);
 void ff7_wm_activateapp(bool hasFocus);
 int ff7_get_gamepad();
@@ -66,9 +65,6 @@ int ff7_field_load_models_atoi(const char* str);
 void ff7_chocobo_field_entity_60FA7D(WORD param1, short param2, short param3);
 void ff7_character_regularly_field_entity_60FA7D(WORD param1, short param2, short param3);
 int ff7_load_save_file(int param_1);
-void ff7_engine_switch_game_loop_sub_666CF2(void*, void*);
-void ff7_chocobo_switch_mode_76DB33(void* ff7_game_obj);
-void ff7_highway_exit_650340(void* ff7_game_obj);
 
 // file
 FILE *open_lgp_file(char *filename, uint32_t mode);
@@ -99,8 +95,6 @@ struct tex_header *sub_673F5C(struct struc_91 *struc91);
 void draw_single_triangle(struct nvertex *vertices);
 void sub_6B2720(struct indexed_primitive *ip);
 void draw_3d_model(uint32_t current_frame, struct anim_header *anim_header, struct struc_110 *struc_110, struct hrc_data *hrc_data, struct ff7_game_obj *game_object);
-void draw_3d_model_smooth_skinning(uint32_t current_frame, struct anim_header *anim_header, struct struc_110 *struc_110, struct hrc_data *hrc_data, struct ff7_game_obj *game_object);
-int battle_sub_684CC6(hrc_data *a1, ff7_game_obj *game_object);
 void fill_light_data(struct light_data* pOutLightData, struct ff7_polygon_set *polygon_set);
 void update_view_matrix(struct ff7_game_obj *game_object);
 
@@ -108,7 +102,6 @@ void update_view_matrix(struct ff7_game_obj *game_object);
 struct anim_header *load_animation(struct file_context *file_context, char *filename);
 struct battle_hrc_header *read_battle_hrc(uint32_t use_file_context, struct file_context *file_context, char *filename);
 struct polygon_data *load_p_file(struct file_context *file_context, uint32_t create_lists, char *filename);
-void free_polygon_data(struct polygon_data *ret);
 void destroy_tex_header(struct ff7_tex_header *tex_header);
 struct ff7_tex_header *load_tex_file(struct file_context *file_context, char *filename);
 
@@ -120,3 +113,31 @@ int ff7_dsound_createsoundbuffer(const WAVEFORMATEX *waveFormatEx);
 // minigames
 void ff7_condor_fix_unit_texture_load(uint32_t unk, struc_3 *struc_3);
 void __fastcall ff7_snowboard_parse_model_vertices(snowboard_this* _this, void* edx, const matrix *matrix, int current_obj, int obj_type, int unk);
+
+// japanese
+void engine_load_menu_graphics_objects_6C1468_jp(int a1);
+//__int16 field_submit_draw_text_640x480_6E706D(__int16 character_x, __int16 character_y, __int16 text_box_right_position, byte *buffer_text, float z_value);
+__int16 field_submit_draw_text_640x480_6E706D_jp(__int16 character_x, __int16 character_y, __int16 text_box_right_position, byte *buffer_text, float z_value);
+void field_draw_text_boxes_and_text_graphics_object_6ECA68_jp();
+//int common_submit_draw_char_from_buffer_6F564E(int x, int vertex_y, int n_shapes, unsigned __int16 letter, float z_value);
+int common_submit_draw_char_from_buffer_6F564E_jp(int x, int vertex_y, int n_shapes, unsigned __int16 letter, float z_value);
+void menu_draw_everything_6CC9D3_jp();
+void battle_draw_menu_everything_6CEE84_jp();
+void draw_text_top_display_6D1CC0(int a1, __int16 menu_box_idx, char a3, unsigned __int16 a4);
+void draw_text_top_display_6D1CC0_jp(int a1, __int16 menu_box_idx, char a3, unsigned __int16 a4);
+void main_menu_draw_everything_maybe_6C0B91_jp();
+void main_menu_draw_everything_maybe_6C0B91_universal();  // For title video - all editions
+void field_text_box_window_paging_631945_jp(short);
+void field_text_box_window_opening_6317A9_jp(short);
+int sub_6F54A2_jp(byte *a1);
+
+// japanese naming screen
+// Replaces keyboard_name_input - collects Japanese input and renders grid each frame
+int ff7_naming_keyboard_input_jp();
+// Force-overwrite counter - when > 0, re-applies Japanese name to savemap each frame
+void ff7_naming_screen_force_overwrite_tick();
+// Draw cursor every frame - called from common_flip to avoid blinking
+void ff7_naming_screen_draw_cursor_tick();
+extern bool g_jp_naming_screen_active;
+extern bool g_jp_naming_screen_drawing;
+extern int g_jp_naming_force_overwrite_frames;

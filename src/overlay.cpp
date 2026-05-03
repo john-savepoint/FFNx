@@ -6,7 +6,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2020 Marcin Gomulak                                     //
-//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -28,13 +28,9 @@
 #include "cfg.h"
 #include "world.h"
 #include "lighting_debug.h"
+#include "sdf_debug.h"
 
 #define IMGUI_VIEW_ID 255
-
-inline bool Overlay::IsVkDown(int vk)
-{
-    return (::GetKeyState(vk) & 0x8000) != 0;
-}
 
 // Updates the mouse position
 void Overlay::UpdateMousePos()
@@ -182,9 +178,9 @@ void Overlay::Render(ImDrawData* drawData)
                 bgfx::TextureHandle th = m_texture;
                 bgfx::ProgramHandle program = m_program;
 
-                if (NULL != cmd.GetTexID())
+                if (NULL != cmd.TextureId)
                 {
-                    union { ImTextureID ptr; struct { bgfx::TextureHandle handle; uint8_t flags; uint8_t mip; } s; } texture = { cmd.GetTexID() };
+                    union { ImTextureID ptr; struct { bgfx::TextureHandle handle; uint8_t flags; uint8_t mip; } s; } texture = { cmd.TextureId };
                     state |= 0 != (texture.s.flags)
                         ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA)
                         : BGFX_STATE_NONE
@@ -238,28 +234,28 @@ bool Overlay::init(bgfx::ProgramHandle program, int width, int height)
     ImGui::GetMainViewport()->PlatformHandleRaw = gameHwnd;
 
     // Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array that we will update during the application lifetime.
-    io.AddKeyEvent(ImGuiKey_Tab, IsVkDown(VK_TAB));
-    io.AddKeyEvent(ImGuiKey_LeftArrow, IsVkDown(VK_LEFT));
-    io.AddKeyEvent(ImGuiKey_RightArrow, IsVkDown(VK_RIGHT));
-    io.AddKeyEvent(ImGuiKey_UpArrow, IsVkDown(VK_UP));
-    io.AddKeyEvent(ImGuiKey_DownArrow, IsVkDown(VK_DOWN));
-    io.AddKeyEvent(ImGuiKey_PageUp, IsVkDown(VK_PRIOR));
-    io.AddKeyEvent(ImGuiKey_PageDown, IsVkDown(VK_NEXT));
-    io.AddKeyEvent(ImGuiKey_Home, IsVkDown(VK_HOME));
-    io.AddKeyEvent(ImGuiKey_End, IsVkDown(VK_END));
-    io.AddKeyEvent(ImGuiKey_Insert, IsVkDown(VK_INSERT));
-    io.AddKeyEvent(ImGuiKey_Delete, IsVkDown(VK_DELETE));
-    io.AddKeyEvent(ImGuiKey_Backspace, IsVkDown(VK_BACK));
-    io.AddKeyEvent(ImGuiKey_Space, IsVkDown(VK_SPACE));
-    io.AddKeyEvent(ImGuiKey_Enter, IsVkDown(VK_RETURN));
-    io.AddKeyEvent(ImGuiKey_Escape, IsVkDown(VK_ESCAPE));
-    io.AddKeyEvent(ImGuiKey_KeypadEnter, IsVkDown(VK_RETURN));
-    io.AddKeyEvent(ImGuiKey_A, IsVkDown('A'));
-    io.AddKeyEvent(ImGuiKey_C, IsVkDown('C'));
-    io.AddKeyEvent(ImGuiKey_V, IsVkDown('V'));
-    io.AddKeyEvent(ImGuiKey_X, IsVkDown('X'));
-    io.AddKeyEvent(ImGuiKey_Y, IsVkDown('Y'));
-    io.AddKeyEvent(ImGuiKey_Z, IsVkDown('Z'));
+    io.KeyMap[ImGuiKey_Tab] = VK_TAB;
+    io.KeyMap[ImGuiKey_LeftArrow] = VK_LEFT;
+    io.KeyMap[ImGuiKey_RightArrow] = VK_RIGHT;
+    io.KeyMap[ImGuiKey_UpArrow] = VK_UP;
+    io.KeyMap[ImGuiKey_DownArrow] = VK_DOWN;
+    io.KeyMap[ImGuiKey_PageUp] = VK_PRIOR;
+    io.KeyMap[ImGuiKey_PageDown] = VK_NEXT;
+    io.KeyMap[ImGuiKey_Home] = VK_HOME;
+    io.KeyMap[ImGuiKey_End] = VK_END;
+    io.KeyMap[ImGuiKey_Insert] = VK_INSERT;
+    io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
+    io.KeyMap[ImGuiKey_Backspace] = VK_BACK;
+    io.KeyMap[ImGuiKey_Space] = VK_SPACE;
+    io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
+    io.KeyMap[ImGuiKey_Escape] = VK_ESCAPE;
+    io.KeyMap[ImGuiKey_KeypadEnter] = VK_RETURN;
+    io.KeyMap[ImGuiKey_A] = 'A';
+    io.KeyMap[ImGuiKey_C] = 'C';
+    io.KeyMap[ImGuiKey_V] = 'V';
+    io.KeyMap[ImGuiKey_X] = 'X';
+    io.KeyMap[ImGuiKey_Y] = 'Y';
+    io.KeyMap[ImGuiKey_Z] = 'Z';
 
     io.DisplaySize = ImVec2(width, height);
     io.DeltaTime = 1.0f / 60.0f;
@@ -315,6 +311,7 @@ void Overlay::drawMainWindow() {
             ImGui::MenuItem("Field Debug", NULL, &field_debug_open);
             if (!ff8) ImGui::MenuItem("Lighting Debug", NULL, &lighting_debug_open);
             if (ff8) ImGui::MenuItem("World Debug", NULL, &world_debug_open);
+            ImGui::MenuItem("SDF Font Debug", NULL, &sdf_debug_open);
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -340,6 +337,7 @@ void Overlay::draw()
         if (field_debug_open) field_debug(&field_debug_open);
         if (!ff8 && lighting_debug_open) lighting_debug(&lighting_debug_open);
         if (ff8 && world_debug_open) world_debug(&world_debug_open);
+        if (sdf_debug_open) sdf_debug(&sdf_debug_open);
     }
 
     ImGui::Render();
@@ -382,11 +380,15 @@ void Overlay::KeyUp(KeyEventArgs e)
 {
     if (e.keyValue == devtools_hotkey)
         visible = !visible;
+
+    if (e.keyValue < 256)
+        ImGui::GetIO().KeysDown[e.keyValue] = 0;
 }
 
 void Overlay::KeyDown(KeyEventArgs e)
 {
-    // Silence is golden
+    if (e.keyValue < 256)
+        ImGui::GetIO().KeysDown[e.keyValue] = 1;
 }
 
 void Overlay::KeyPress(KeyPressEventArgs e)
