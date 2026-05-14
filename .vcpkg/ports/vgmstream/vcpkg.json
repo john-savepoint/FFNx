@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "description": "A library for playback of various streamed audio formats used in video games.",
   "homepage": "https://github.com/vgmstream/vgmstream",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
   "default-features": [
     "ffmpeg",
     "mpg123",
