@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2023 myst6re                                            //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -72,7 +72,7 @@ void TexturePacker::cleanVramTextureIds(const TextureInfos &texture)
 	}
 }
 
-void TexturePacker::cleanTextures(ModdedTextureId previousTextureId)
+void TexturePacker::cleanTextures(ModdedTextureId previousTextureId, int xBpp2, int y, int wBpp2, int h)
 {
 	auto it = _textures.find(previousTextureId);
 
@@ -81,16 +81,34 @@ void TexturePacker::cleanTextures(ModdedTextureId previousTextureId)
 		return;
 	}
 
-	if (trace_all || trace_vram) ffnx_info("TexturePacker::%s: clear texture %s textureId=0x%X\n", __func__, it->second.printableName(), previousTextureId);
+	const IdentifiedTexture &identifiedTexture = it->second;
 
-	cleanVramTextureIds(it->second.texture());
+	// Abort clean if the conflict is negligible (fixes Rinoa's battle model d4c009.dat)
+	if (identifiedTexture.texture().w() >= 10) {
+		if (xBpp2 + 1 == identifiedTexture.texture().x() + identifiedTexture.texture().w()) {
+			if (trace_all || trace_vram) ffnx_warning("TexturePacker::%s: texture not cleared because the conflict is negligible %s textureId=0x%X\n", __func__, identifiedTexture.printableName(), previousTextureId);
 
-	if (it->second.mod() != nullptr)
-	{
-		delete it->second.mod();
+			return;
+		}
+	}
+	if (identifiedTexture.texture().h() >= 10) {
+		if (y + 1 == identifiedTexture.texture().y() + identifiedTexture.texture().h()) {
+			if (trace_all || trace_vram) ffnx_warning("TexturePacker::%s: texture not cleared because the conflict is negligible %s textureId=0x%X\n", __func__, identifiedTexture.printableName(), previousTextureId);
+
+			return;
+		}
 	}
 
-	for (const std::pair<ModdedTextureId, const IdentifiedTexture &> &pair: it->second.redirections())
+	if (trace_all || trace_vram) ffnx_info("TexturePacker::%s: clear texture %s textureId=0x%X\n", __func__, identifiedTexture.printableName(), previousTextureId);
+
+	cleanVramTextureIds(identifiedTexture.texture());
+
+	if (identifiedTexture.mod() != nullptr)
+	{
+		delete identifiedTexture.mod();
+	}
+
+	for (const std::pair<ModdedTextureId, const IdentifiedTexture &> &pair: identifiedTexture.redirections())
 	{
 		if (pair.second.mod() != nullptr)
 		{
@@ -120,7 +138,7 @@ void TexturePacker::setVramTextureId(ModdedTextureId textureId, int xBpp2, int y
 
 				if (previousTextureId != INVALID_TEXTURE)
 				{
-					cleanTextures(previousTextureId);
+					cleanTextures(previousTextureId, xBpp2, y, wBpp2, h);
 				}
 			}
 
@@ -167,12 +185,12 @@ bool TexturePacker::setTexture(const char *name, const TextureInfos &texture, co
 	return tex.mod() != nullptr;
 }
 
-bool TexturePacker::setTextureBackground(const char *name, int x, int y, int w, int h, const std::vector<Tile> &mapTiles, const char *extension, char *found_extension)
+bool TexturePacker::setTextureBackground(const char *name, int x, int y, int w, int h, int maxW, const std::vector<Tile> &mapTiles, const char *extension, char *found_extension)
 {
 	if (trace_all || trace_vram) ffnx_trace("TexturePacker::%s %s x=%d y=%d w=%d h=%d tileCount=%d\n", __func__, name, x, y, w, h, mapTiles.size());
 
 	ModdedTextureId textureId = makeTextureId(x, y);
-	setVramTextureId(textureId, x, y, w, h);
+	setVramTextureId(textureId, x, y, maxW, h);
 
 	IdentifiedTexture tex(name, TextureInfos(x, y, w, h, Tim::Bpp16, true));
 

@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -190,7 +190,7 @@ private:
 	SoLoud::time _lastVolumeFadeEndTime = 0.0;
 
 	void cleanOldAudioSources();
-	SoLoud::AudioSource* loadMusic(const char* name, bool isFullPath = false, const char* format = nullptr, bool suppressOpeningSilence = false);
+	SoLoud::AudioSource* loadMusic(const char* name, bool useNameAsFullPath = false, const char* format = nullptr, bool suppressOpeningSilence = false);
 	void overloadPlayArgumentsFromConfig(char* name, uint32_t *id, MusicOptions *MusicOptions);
 	void backupMusic(int channelSource);
 	void restoreMusic(int channelDest, double stopTime = 0);
@@ -237,7 +237,7 @@ public:
 	// SFX
 	int getSFXIdFromChannel(int channel);
 	void unloadSFX(int id);
-	bool playSFX(const char* name, int id, int channel, float panning, bool loop = false);
+	bool playSFX(const char* name, int id, int channel, float panning, bool loop = false, float volume = 1.0f);
 	void stopSFX(int channel, double time = 0);
 	void pauseSFX(int channel);
 	void resumeSFX(int channel);
@@ -256,7 +256,7 @@ public:
 	bool isMusicDisabled(const char* name);
 	bool playMusic(const char* name, uint32_t id, int channel, MusicOptions options = MusicOptions());
 	void playSynchronizedMusics(const std::vector<std::string>& names, uint32_t id, MusicOptions options = MusicOptions());
-	void swapChannels();
+	void prioritizeMusicRestore(uint32_t id);
 	void stopMusic(double time = 0);
 	void stopMusic(int channel, double time = 0);
 	void pauseMusic(double time = 0);

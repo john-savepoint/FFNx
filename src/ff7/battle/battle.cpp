@@ -192,7 +192,7 @@ namespace ff7::battle
 		}
 
 		// Then do achievement tracking
-		g_FF7SteamAchievements->unlockFirstLimitBreakAchievement(command_id, action_id);
+		g_FF7SteamAchievements->unlockAchievementByBattleCommandAndAction(command_id, action_id);
 	}
 
 	int load_scene_bin_chunk(char *filename, int offset, int size, char **out_buffer, void (*callback)(void))

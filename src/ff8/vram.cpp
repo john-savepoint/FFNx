@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2023 myst6re                                            //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Tang-Tang Zhou                                     //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -58,6 +58,9 @@ int last_CLUT = 0;
 
 // Field background
 uint8_t *mim_texture_buffer = nullptr;
+int mim_real_width = 0;
+// Field effects
+TexturePacker::TextureInfos field_effect_texture_infos = TexturePacker::TextureInfos();
 // Field models
 std::unordered_map<uint32_t, CharaOneModel> chara_one_models;
 std::vector<uint32_t> chara_one_loaded_models;
@@ -70,6 +73,8 @@ std::vector<CharaOneModelTextures> chara_one_world_texture_offsets;
 uint8_t *chara_one_world_data;
 std::vector<WmsetSection17Texture> wm_wmset_wave_animations_textures;
 std::unordered_map<uint32_t, WmsetSection41Texture> wm_wmset_palette_animations_textures;
+int wm_selphie_old_second_texture_pos = 0;
+int wm_selphie_new_second_texture_pos = 0;
 // Battle
 char battle_texture_name[MAX_PATH] = "";
 int battle_texture_id = 0;
@@ -92,6 +97,83 @@ struct BattleTextureFileName {
 };
 std::vector<BattleTextureFileName> battle_texture_data_list = std::vector<BattleTextureFileName>(battle_texture_data_list_size);
 int battle_texture_data_list_cursor = 0;
+
+struct VramPos {
+	uint16_t x, y;
+};
+constexpr int FIELD_MODEL_TEX_VRAM_POS_ORIGINAL_LENGTH = 16;
+constexpr int FIELD_MODEL_TEX_VRAM_POS_LENGTH = 44;
+constexpr int FIELD_VRAM_POS_LENGTH = FIELD_MODEL_TEX_VRAM_POS_ORIGINAL_LENGTH + FIELD_MODEL_TEX_VRAM_POS_LENGTH;
+/* VRAM usage in the original game for the field module (if divised in 16x4 cells, a field character texture takes one cell):
+ *
+ *     0  64  128 192 256 320 384 448 512 576 640 704 768 832 896 960
+ *   0 | S | S | S | S | S | S | C | C | ? | X | X | X | X | ? | C | C |
+ * 128 |S/P|S/P|S/P|S/P| S | S | C | C | P |X/P|X/P|X/P| X | ? | C | C |
+ * 256 | B | B | B | B | B | B | B | B | B |B/C|B/C|B/C|B/C| ? | ? | ? |
+ * 768 | B | B | B | B | B | B | B | B | B |B/C|B/C|B/C|B/C| ? | ? | ? |
+ *
+ * Legend:
+ *  - S: battle swirl screen capture (unused in PC game)
+ *  - P: palettes
+ *  - C: field character textures
+ *  - X: Particle Effect textures
+ *  - B: field background
+ *  - ?: seems unused in PC version. It is possible to dynamically set the position of particle effect via data
+ */
+VramPos field_model_tex_vram_pos[FIELD_MODEL_TEX_VRAM_POS_LENGTH] = {
+	// Unused spaces in top-left VRAM (because not needed in the PC version)
+	{320, 128},
+	{320, 0},
+	{256, 128},
+	{256, 0},
+	// {192, 128} is used by palettes
+	{192, 0},
+	// {128, 128} is used by palettes
+	{128, 0},
+	// {64, 128} is used by palettes
+	{64, 0},
+	// {0, 128} is used by palettes
+	{0, 0},
+	// Unused spaces in bottom-right VRAM
+	{960, 384},
+	{960, 256},
+	{896, 384},
+	{896, 256},
+	{832, 384},
+	{832, 256},
+	// More background conflicting positions
+	{512, 384},
+	{512, 256},
+	{448, 384},
+	{448, 256},
+	{384, 384},
+	{384, 256},
+	{320, 384},
+	{320, 256},
+	{256, 384},
+	{256, 256},
+	{192, 384},
+	{192, 256},
+	{128, 384},
+	{128, 256},
+	{64, 384},
+	{64, 256},
+	{0, 384},
+	{0, 256},
+	// More unused spaces (can conflict with particles)
+	{512, 128},
+	{512, 0},
+	{832, 128},
+	{832, 0},
+	{768, 128},
+	{768, 0},
+	{704, 128},
+	{704, 0},
+	{640, 128},
+	{640, 0},
+	{576, 128},
+	{576, 0}
+};
 
 uint8_t *ff8_vram_seek(int xBpp2, int y)
 {
@@ -818,6 +900,14 @@ Tim ff8_wm_set_texture_name_from_section_position(uint8_t section_number, uint32
 	return tim;
 }
 
+void ff8_wm_set_section_positions()
+{
+	// This is when the worldmap loads: Clear all textures in the VRAM
+	texturePacker.clearTextures();
+
+	((void(*)())ff8_externals.worldmap_wmset_set_pointers_sub_542DA0)();
+}
+
 void ff8_wm_section_17_upload(uint8_t *tim_file_data, int16_t x, int16_t y)
 {
 	if (trace_all || trace_vram) ffnx_trace("%s: pos=(%d, %d)\n", __func__, x, y);
@@ -906,6 +996,8 @@ int ff8_wm_chara_one_read_file(int fd, uint8_t *data, size_t size)
 
 	chara_one_world_texture_offsets = ff8_world_chara_one_parse_models(data, read);
 	chara_one_world_data = data;
+	wm_selphie_old_second_texture_pos = 0;
+	wm_selphie_new_second_texture_pos = 0;
 
 	if (save_textures) {
 		char filename[MAX_PATH];
@@ -916,9 +1008,63 @@ int ff8_wm_chara_one_read_file(int fd, uint8_t *data, size_t size)
 	return read;
 }
 
+uint8_t *wm_chara_one_push_polygons_selphie_patch(int model_id_1, int model_id_2, uint32_t *current_model_data)
+{
+	if (trace_all || trace_vram) ffnx_trace("%s: model_id_1=%d model_id_2=%d\n", __func__, model_id_1, model_id_2);
+
+	uint8_t *ret = ((uint8_t*(*)(int,int,uint32_t*))ff8_externals.wm_chara_one_push_polygons_sub_6528D0)(model_id_1, model_id_2, current_model_data);
+
+	if (model_id_2 != 6 || wm_selphie_new_second_texture_pos == 0 || wm_selphie_old_second_texture_pos == wm_selphie_new_second_texture_pos) {
+		return ret;
+	}
+
+	// Patch Selphie
+	uint32_t **chara_one_model_data = (uint32_t **)ff8_externals.dword_24FEE48;
+	uint32_t *model_data = chara_one_model_data[model_id_2];
+	int count1 = model_data[12], count2 = model_data[13], count3 = model_data[14], count4 = model_data[15];
+
+	uint8_t *cur = (uint8_t *)current_model_data[22];
+	int8_t shift = (wm_selphie_new_second_texture_pos - wm_selphie_old_second_texture_pos) * 4;
+
+	for (int j = 0; j < 2; ++j) {
+		cur += count1 * 28 + count2 * 36;
+
+		SsigpuExecutionInstructionTriangle36 *exec_36 = (SsigpuExecutionInstructionTriangle36 *)cur;
+
+		for (int i = 0; i < count3; ++i) {
+			if (exec_36->tex_pos_x6_y9 == 0x3F81) { // Second texture (<=> palette=1)
+				// Move texture coordinates
+				exec_36->tex_coord_a.u += shift;
+				exec_36->tex_coord_b.u += shift;
+				exec_36->tex_coord_c.u += shift;
+			}
+
+			exec_36 += 1;
+		}
+
+		SsigpuExecutionInstructionRect44 *exec_44 = (SsigpuExecutionInstructionRect44 *)exec_36;
+
+		for (int i = 0; i < count4; ++i) {
+			if (exec_44->parent.tex_pos_x6_y9 == 0x3F81) { // Second texture (<=> palette=1)
+				// Move texture coordinates
+				exec_44->parent.tex_coord_a.u += shift;
+				exec_44->parent.tex_coord_b.u += shift;
+				exec_44->parent.tex_coord_c.u += shift;
+				exec_44->tex_coord_d.u += shift;
+			}
+
+			exec_44 += 1;
+		}
+
+		cur = (uint8_t *)exec_44;
+	}
+
+	return ret;
+}
+
 int ff8_wm_chara_one_upload_texture_2(char *image_buffer, char bpp, char a3, int x, int16_t y, int w, int16_t h)
 {
-	if (trace_all || trace_vram) ffnx_trace("%s\n", __func__);
+	if (trace_all || trace_vram) ffnx_trace("%s %d %d %d %d\n", __func__, x, y, w, h);
 
 	int chara_one_offset = int(*(ff8_externals.chara_one_data_start) - chara_one_world_data);
 	int model_id = 0;
@@ -928,6 +1074,19 @@ int ff8_wm_chara_one_upload_texture_2(char *image_buffer, char bpp, char a3, int
 			if (texture_offset == chara_one_offset) {
 				next_bpp = Tim::Bpp(bpp);
 				snprintf(next_texture_name, MAX_PATH, "world/esk/chara_one/model%d-%d", model_id, texture_id);
+
+				// Selphie patch: detect texture overlap and move the second texture on the right
+				if (model_id == 6) {
+					if (texture_id == 0) {
+						wm_selphie_new_second_texture_pos = x + w / 4;
+					} else if (texture_id == 1) {
+						wm_selphie_old_second_texture_pos = x;
+
+						if (wm_selphie_new_second_texture_pos > 0 && wm_selphie_new_second_texture_pos != x) {
+							x = wm_selphie_new_second_texture_pos;
+						}
+					}
+				}
 
 				return ((int(*)(char *, char, char, int, __int16, int, __int16))ff8_externals.chara_one_upload_texture)(image_buffer, bpp, a3, x, y, w, h);
 			}
@@ -951,7 +1110,7 @@ void ff8_wm_chara_one_upload_palette_2(int16_t *pos_and_size, uint8_t *texture_b
 
 void ff8_wm_update_fence_animation()
 {
-	uint8_t current_disk = uint8_t((*ff8_externals.savemap)[51]);
+	uint8_t current_disk = (*ff8_externals.savemap_field)->curr_disk;
 
 	if (trace_all || trace_vram) ffnx_trace("%s: current_disk=%d\n", __func__, current_disk);
 
@@ -1060,7 +1219,17 @@ void ff8_field_mim_palette_upload_vram(int16_t *pos_and_size, uint8_t *texture_b
 {
 	if (trace_all || trace_vram) ffnx_trace("%s\n", __func__);
 
-	mim_texture_buffer = texture_buffer;
+	// This is the first upload when a field map loads: Clear all textures in the VRAM
+	texturePacker.clearTextures();
+
+	field_effect_texture_infos = TexturePacker::TextureInfos();
+
+	if (save_textures_legacy || save_textures) {
+		if (mim_texture_buffer == nullptr) {
+			mim_texture_buffer = new uint8_t[438272];
+		}
+		memcpy(mim_texture_buffer, texture_buffer, 438272);
+	}
 
 	ff8_upload_vram(pos_and_size, texture_buffer);
 }
@@ -1071,36 +1240,33 @@ uint32_t ff8_field_read_map_data(char *filename, uint8_t *map_data)
 
 	uint32_t ret = ff8_externals.sm_pc_read(filename, map_data);
 
+	std::vector<Tile> tiles = ff8_background_parse_tiles(map_data, &mim_real_width);
+
 	char tex_directory[MAX_PATH] = {}, tex_filename[MAX_PATH] = {};
 
 	snprintf(tex_directory, sizeof(tex_directory), "field/mapdata/%s", get_current_field_name());
 	snprintf(tex_filename, sizeof(tex_filename), "%s/%s", tex_directory, get_current_field_name());
 
 	if (save_textures_legacy) {
-		ff8_background_save_textures_legacy(ff8_background_parse_tiles(map_data), mim_texture_buffer, tex_filename);
+		snprintf(tex_directory, sizeof(tex_directory), "field/mapdata/%.2s/%s/%s", get_current_field_name(), get_current_field_name(), get_current_field_name());
+		ff8_background_save_textures_legacy(tiles, mim_texture_buffer, tex_directory);
 
 		return ret;
 	} else if (save_textures) {
-		ff8_background_save_textures(ff8_background_parse_tiles(map_data), mim_texture_buffer, tex_filename);
+		ff8_background_save_textures(tiles, mim_texture_buffer, tex_filename);
 
 		return ret;
 	}
 
 	char tex_abs_directory[MAX_PATH] = {};
-	snprintf(tex_abs_directory, sizeof(tex_abs_directory), "%s/%s", mod_path.c_str(), tex_directory);
+	snprintf(tex_abs_directory, sizeof(tex_abs_directory), "%s/%s/%s", basedir, mod_path.c_str(), tex_directory);
 	bool has_dir = dirExists(tex_abs_directory);
 
 	if (!has_dir && (trace_all || trace_loaders || trace_vram)) {
 		ffnx_warning("Directory does not exist, fallback to Tonberry compatibility layer: %s\n", tex_abs_directory);
 	}
 
-	std::vector<Tile> tiles;
-
-	if (has_dir) {
-		tiles = ff8_background_parse_tiles(map_data);
-	}
-
-	if (!has_dir || !texturePacker.setTextureBackground(tex_filename, 0, 256, VRAM_PAGE_MIM_MAX_COUNT * TEXTURE_WIDTH_BPP16, TEXTURE_HEIGHT, tiles)) {
+	if (!has_dir || !texturePacker.setTextureBackground(tex_filename, 0, 256, VRAM_PAGE_MIM_MAX_COUNT * TEXTURE_WIDTH_BPP16, TEXTURE_HEIGHT, mim_real_width, tiles)) {
 		snprintf(tex_directory, sizeof(tex_directory), "field/mapdata/%.2s/%s/%s", get_current_field_name(), get_current_field_name(), get_current_field_name());
 
 		for (int i = 0; i < VRAM_PAGE_MIM_MAX_COUNT; ++i) {
@@ -1618,6 +1784,50 @@ void ff8_battle_upload_texture_palette(int16_t *pos_and_size, uint8_t *texture_b
 	}
 }
 
+int ff8_load_field_models(
+	int current_data_pointer,
+	void *models_infos,
+	VramPos *palette_vram_positions,
+	VramPos *texture_vram_positions,
+	const char *dirName,
+	int field_data_pointer,
+	int field_data_max_pointer,
+	int pcb_data_size)
+{
+	VramPos tex_vram_pos[FIELD_VRAM_POS_LENGTH] = {}, pal_vram_pos[FIELD_VRAM_POS_LENGTH] = {};
+
+	// Maximize texture positioning by eliminating taken spots
+	int j = 0;
+	for (int i = 0; i < FIELD_VRAM_POS_LENGTH; ++i) {
+		VramPos pos = i < FIELD_MODEL_TEX_VRAM_POS_ORIGINAL_LENGTH ? texture_vram_positions[i] : field_model_tex_vram_pos[i - FIELD_MODEL_TEX_VRAM_POS_ORIGINAL_LENGTH];
+		// Background is at (0, 256, mim_real_width, 256)
+		if (pos.y >= 256 && pos.x < mim_real_width) {
+			if (trace_all || trace_vram) ffnx_warning("%s: (%d, %d) cell taken by mim, continue\n", __func__, pos.x, pos.y);
+			continue;
+		}
+		// Effects can be positionned anywhere, depending on the pmp file content
+		if (pos.x >= field_effect_texture_infos.x() && pos.x < field_effect_texture_infos.x() + field_effect_texture_infos.w()
+			&& pos.y >= field_effect_texture_infos.y() && pos.y < field_effect_texture_infos.y() + field_effect_texture_infos.h()) {
+			if (trace_all || trace_vram) ffnx_warning("%s: (%d, %d) cell taken by pmp, continue\n", __func__, pos.x, pos.y);
+			continue;
+		}
+		pal_vram_pos[j] = {0, uint16_t(i + 128u)}; // Relocate palettes on (0, 128) instead of (512, 240)
+		tex_vram_pos[j] = pos;
+		j += 1;
+	}
+
+	return ((int(*)(int,void*,VramPos*,VramPos*,const char*,int,int,int))ff8_externals.load_field_models)(
+		current_data_pointer,
+		models_infos,
+		pal_vram_pos,
+		tex_vram_pos,
+		dirName,
+		field_data_pointer,
+		field_data_max_pointer,
+		pcb_data_size
+	);
+}
+
 void engine_set_init_time(double fps_adjust)
 {
 	texturePacker.clearTextures();
@@ -1652,6 +1862,7 @@ void vram_init()
 	replace_call(ff8_externals.sub_5391B0 + 0x1CC, ff8_upload_vram_triple_triad_2_palette);
 	replace_call(ff8_externals.sub_5391B0 + 0x1E1, ff8_upload_vram_triple_triad_2_data);
 	// worldmap
+	replace_call(ff8_externals.worldmap_sub_53F310_call_24D, ff8_wm_set_section_positions); // Replaced to clear the textures on module loading
 	replace_call(ff8_externals.sub_554940_call_130, ff8_wm_section_17_upload); // Waves
 	replace_call(ff8_externals.worldmap_sub_53F310_call_2A9, ff8_wm_section_38_prepare_texture_for_upload);
 	replace_call(ff8_externals.worldmap_sub_53F310_call_30D, ff8_upload_vram_wm_section_38_palette);
@@ -1662,6 +1873,7 @@ void vram_init()
 	replace_call(ff8_externals.worldmap_chara_one + 0xCC, ff8_wm_chara_one_read_file);
 	replace_call(ff8_externals.worldmap_chara_one + 0x4D1, ff8_wm_chara_one_upload_texture_2); // Characters/Chocobos/Ragnarok
 	replace_call(ff8_externals.worldmap_chara_one + 0x566, ff8_wm_chara_one_upload_palette_2);
+	replace_call(ff8_externals.worldmap_chara_one + 0x675, wm_chara_one_push_polygons_selphie_patch); // Patch Selphie
 	replace_call(ff8_externals.worldmap_input_update_sub_559240 + (FF8_US_VERSION ? 0x263 : 0x260), ff8_wm_update_fence_animation);
 	// wm texl project
 	replace_call(ff8_externals.upload_psxvram_texl_pal_call1, ff8_wm_texl_palette_upload_vram);
@@ -1730,10 +1942,16 @@ void vram_init()
 	replace_call(ff8_externals.write_palette_texture_set_sub_466190 + 0x2C, ff8_read_vram_palette);
 	replace_call(ff8_externals.write_palette_texture_set_sub_466190 + 0x7E, ff8_write_palette_to_driver);
 
+	//---- Field VRAM arrangement
+
+	// Change texture positions in VRAM
+	replace_call(ff8_externals.read_field_data + (JP_VERSION ? 0xFA2 : 0xF0F), ff8_load_field_models);
+
 	//---- Misc
 
 	// Fix missing textures in battle module by clearing custom textures
 	replace_call(ff8_externals.battle_enter + 0x35, engine_set_init_time);
+	replace_call(ff8_externals.credits_enter + 0x12, engine_set_init_time);
 	// Clear texture_packer on every module exits
 	replace_call(ff8_externals.psxvram_texture_pages_free + 0x5A, clean_psxvram_pages);
 	// Free pc_name in tex_header

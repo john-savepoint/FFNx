@@ -6,7 +6,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2020 Marcin Gomulak                                     //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <span>
 #include <stdint.h>
 #include <stdio.h>
 #include <windows.h>
@@ -29,6 +31,7 @@
 #include <dinput.h>
 
 #include "common_imports.h"
+#include "ff8/save_data.h"
 
 // FF7 modules, unknowns are either unused or not relevant to rendering
 enum ff8_game_modes
@@ -126,6 +129,14 @@ struct sprite_viewport
 	float scale_y;
 	float offset_x;
 	float offset_y;
+};
+
+struct pak_pointers_entry
+{
+	uint32_t cam_offset;
+	uint32_t bik_offset;
+	uint32_t bik_lowres_offset;
+	uint32_t flag;
 };
 
 struct font_object
@@ -257,6 +268,37 @@ struct ff8_graphics_object
 	uint32_t use_matrix_pointer;
 	struct matrix* matrix_pointer;
 	struct matrix matrix;
+};
+
+struct ff8_light
+{
+	uint32_t flags;
+	uint32_t field_4;
+	struct struc_106 *color_1;
+	struct struc_106 *color_2;
+	struct struc_106 *color_3;
+	struct bgra_color global_light_color_abgr;
+	struct bgra_color global_light_color_abgr_norm;
+	uint32_t global_light_color_rgba;
+	struct matrix field_38;
+	struct matrix field_78;
+	struct matrix field_B8;
+	struct matrix field_F8;
+	uint32_t field_138;
+	struct matrix normal_matrix;
+	uint32_t field_17C;
+	uint32_t field_180;
+	uint32_t field_184;
+	uint32_t field_188;
+	uint32_t field_18C;
+	uint32_t field_190;
+	uint32_t field_194;
+	uint32_t field_198;
+	struct matrix *matrix_pointer;
+	uint32_t field_1A0;
+	uint32_t field_1A4[256];
+	uint32_t field_5A4;
+	bgra_color_ui8 color;
 };
 
 struct ff8_polygon_set
@@ -966,7 +1008,7 @@ struct ff8_gfx_driver
 
 struct ff8_field_state_common {
 	uint8_t stack_data[0x140];
-	uint32_t field_140;
+	uint32_t return_value;
 	uint32_t field_144;
 	uint32_t field_148;
 	uint32_t field_14c;
@@ -1024,9 +1066,83 @@ struct ff8_field_state_background {
 	uint8_t field_1b3;
 };
 
+struct ff8_field_state_other {
+	ff8_field_state_common common;
+	uint8_t gap1[114];
+	uint16_t current_triangle_id;
+	uint8_t gap1b[28];
+	int16_t model_id;
+	uint8_t gap2[47];
+	uint8_t pushonoff;
+	uint8_t gap3;
+	uint8_t talkonoff;
+	uint8_t throughonoff;
+	uint8_t gap4[2];
+	uint8_t baseanim1;
+	uint8_t baseanim2;
+	uint8_t baseanim3;
+	uint8_t ladderanim1;
+	uint8_t ladderanim2;
+	uint8_t ladderanim3;
+	uint8_t setpc;
+	uint8_t gap5;
+	uint8_t setgeta;
+	uint8_t gap6[12];
+};
+
+struct ff8_char_computed_stats {
+	uint8_t unk1[370];
+	uint16_t curr_hp;
+	uint16_t max_hp;
+	uint8_t unk2[66];
+	uint8_t stat_multiplier;
+	uint8_t unk3[23];
+};
+
 struct ff8_menu_callback {
 	void (*func)(int);
 	uint32_t field_4;
+};
+
+struct TexCoord {
+	uint8_t u, v;
+};
+
+struct SsigpuExecutionInstructionTriangle52 {
+	uint32_t field_0;
+	uint8_t r, g, b, func_id;
+	uint32_t vertex_a;
+	TexCoord tex_coord_a;
+	uint16_t tex_pos_x6_y9;
+	uint32_t field_10;
+	uint32_t vertex_b;
+	TexCoord tex_coord_b;
+	uint16_t tex_header;
+	uint32_t field_1C;
+	uint32_t vertex_c;
+	TexCoord tex_coord_c;
+	uint16_t field_26;
+};
+
+struct SsigpuExecutionInstructionTriangle36 {
+	uint32_t field_0;
+	uint8_t r, g, b, func_id;
+	uint32_t vertex_a;
+	TexCoord tex_coord_a;
+	uint16_t tex_pos_x6_y9;
+	uint32_t vertex_b;
+	TexCoord tex_coord_b;
+	uint16_t tex_header;
+	uint32_t vertex_c;
+	TexCoord tex_coord_c;
+	uint16_t alpha;
+};
+
+struct SsigpuExecutionInstructionRect44 {
+	SsigpuExecutionInstructionTriangle36 parent;
+	uint32_t vertex_d;
+	TexCoord tex_coord_d;
+	uint16_t field26;
 };
 
 // --------------- end of FF8 imports ---------------
@@ -1040,8 +1156,9 @@ struct ff8_externals
 	uint32_t swirl_sub_56D390;
 	uint32_t nvidia_hack1;
 	uint32_t nvidia_hack2;
-	struct sprite_viewport *menu_viewport;
-	uint32_t main_loop;
+	struct sprite_viewport *sprite_viewport; // 0xB86D40
+	struct sprite_viewport *menu_viewport; // 0xB86DA0
+	uint32_t main_loop; // 0x4706B0
 	uint32_t sub_47CCB0;
 	uint32_t sub_534640;
 	uint32_t sub_4972A0;
@@ -1055,10 +1172,14 @@ struct ff8_externals
 	uint32_t init_config;
 	uint32_t (*reg_get_data_drive)(char*, DWORD);
 	void (*set_game_paths)(int, char *, const char *);
+	int (*reg_get_midiguid)(LPBYTE);
+	BOOL (*reg_set_midiguid)(const BYTE *);
+	int (*reg_get_graphics)();
 	uint32_t (*sm_pc_read)(char*,void*);
 	uint32_t get_disk_number;
 	char* disk_data_path;
 	const char *app_path;
+	const char *data_drive_path;
 	uint32_t swirl_enter;
 	uint32_t swirl_main_loop;
 	uint32_t sub_460B60;
@@ -1073,8 +1194,13 @@ struct ff8_externals
 	uint32_t field_fade_transition_sub_472990;
 	uint32_t sub_45CDD0;
 	uint32_t sub_4767B0;
+	uint32_t (*ctrl_keyboard_actions)();
+	uint32_t get_key_state;
+	byte **keyboard_state;
 	uint32_t sub_4789A0;
 	char (*sub_47CA90)();
+	uint32_t field_update_seed_level_52B140;
+	uint32_t field_update_rinoa_limit_breaks_52B320;
 	uint32_t battle_trigger_field;
 	uint32_t battle_trigger_worldmap;
 	uint32_t _load_texture;
@@ -1088,10 +1214,13 @@ struct ff8_externals
 	uint32_t get_command_key;
 	uint32_t sub_468BD0;
 	uint32_t pubintro_cleanup;
+	uint32_t pubintro_enter_main;
 	uint32_t pubintro_exit;
 	uint32_t pubintro_main_loop;
+	uint32_t credits_enter;
 	uint32_t credits_main_loop;
 	uint32_t go_to_main_menu_main_loop;
+	uint32_t main_menu_enter;
 	uint32_t main_menu_main_loop;
 	DWORD* credits_loop_state;
 	DWORD* credits_counter;
@@ -1123,7 +1252,10 @@ struct ff8_externals
 	uint32_t sub_4B3140;
 	uint32_t sub_4BDB30;
 	ff8_menu_callback *menu_callbacks;
+	char (*menu_use_items_sub_4F81F0)(int);
 	uint32_t menu_cards_render;
+	uint32_t sub_534AD0;
+	uint8_t **card_texts_off_B96504;
 	uint32_t sub_4EFC00;
 	uint32_t sub_4EFCD0;
 	uint32_t menu_config_controller;
@@ -1131,12 +1263,23 @@ struct ff8_externals
 	uint32_t menu_config_render_submenu;
 	ff8_menu_config_input *menu_config_input_desc;
 	ff8_menu_config_input_keymap *menu_config_input_desc_keymap;
+	uint32_t menu_junkshop_sub_4EA890;
+	uint32_t menu_shop_sub_4EBE40;
 	uint32_t main_menu_render_sub_4E5550;
 	uint32_t main_menu_controller;
 	uint32_t sub_4C2FF0;
+	uint32_t menu_sub_4D4D30;
 	uint32_t menu_chocobo_world_controller;
 	uint32_t create_save_file_sub_4C6E50;
 	uint32_t create_save_chocobo_world_file_sub_4C6620;
+	void (*menu_chocobo_sub_4FF8F0)();
+	void (*menu_shop_update_gil_and_items_4EB9F0)(int);
+	int (*add_item_to_player_sub_47ED00)(int, char);
+	void (*update_seed_exp_4C30E0)(int);
+	int (*sub_4ABC40)(int, int);
+	int (*sub_4EA770)(int, uint32_t);
+	uint32_t* menu_data_1D76A9C;
+	std::span<uint8_t> menu_shop_staged_items_1D8D058;
 	uint32_t get_text_data;
 	uint32_t sub_4BE4D0;
 	uint32_t sub_4BECC0;
@@ -1158,6 +1301,8 @@ struct ff8_externals
 	int (*field_scripts_init)(int, int, int, int);
 	uint8_t *field_state_background_count;
 	ff8_field_state_background **field_state_backgrounds;
+	uint8_t *field_state_other_count;
+	ff8_field_state_other **field_state_others;
 	uint32_t load_field_models;
 	uint32_t chara_one_read_file;
 	uint32_t chara_one_seek_file;
@@ -1183,6 +1328,8 @@ struct ff8_externals
 	uint32_t worldmap_alter_uv_sub_553B40;
 	uint32_t worldmap_sub_545E20;
 	uint32_t worldmap_chara_one;
+	uint32_t wm_chara_one_push_polygons_sub_6528D0;
+	uint32_t dword_24FEE48;
 	int32_t (*open_file_world)(const char*, int32_t, uint32_t, void *);
 	uint32_t open_file_world_sub_52D670_texl_call1;
 	uint32_t open_file_world_sub_52D670_texl_call2;
@@ -1210,6 +1357,8 @@ struct ff8_externals
 	DWORD* engine_mapped_buttons;
 	uint32_t draw_movie_frame;
 	struct ff8_movie_obj *movie_object;
+	char **disc_pak_filenames;
+	pak_pointers_entry **disc_pak_offsets;
 	int (*sub_5304B0)();
 	uint32_t *enable_framelimiter;
 	unsigned char *byte_1CE4907;
@@ -1220,6 +1369,8 @@ struct ff8_externals
 	uint32_t ssigpu_init;
 	uint32_t *sub_blending_capability;
 	uint32_t *d3dcaps;
+	uint32_t loc_460BB0;
+	float *psx_floats1;
 	uint32_t sub_53BB90;
 	uint32_t worldmap_fog_filter_polygons_in_block_1;
 	uint32_t worldmap_polygon_condition_2045C8C;
@@ -1241,12 +1392,15 @@ struct ff8_externals
 	uint32_t sub_54D7E0;
 	uint32_t sub_54FDA0;
 	uint32_t worldmap_with_fog_sub_53FAC0;
+	void (*set_drawpoint_state_521D90)(uint8_t, char);
 	char* worldmap_windows_idx_map;
 	int (*world_dialog_assign_text_sub_543790)(int,int,char*);
 	int (*world_dialog_question_assign_text_sub_5438D0)(int, int, char*, int, int, int, uint8_t);
 	uint32_t sub_543CB0;
 	uint32_t sub_5484B0;
 	uint32_t sub_54A230;
+	uint32_t worldmap_update_steps_sub_6519D0;
+	uint32_t worldmap_update_seed_level_651C10;
 	uint32_t sub_54E9B0;
 	uint32_t sub_550070;
 	int (*sub_541C80)(WORD*);
@@ -1307,10 +1461,17 @@ struct ff8_externals
 	uint32_t opcode_musicvolsync;
 	uint32_t opcode_getmusicoffset;
 	uint32_t opcode_drawpoint;
+	int (*opcode_cardgame)(int);
 	uint32_t opcode_battle;
 	uint32_t opcode_tuto;
 	uint32_t opcode_mapjump;
 	uint32_t opcode_pshm_w;
+	int (*opcode_popm_w)(void*, int);
+	int (*opcode_popm_b)(void*, int);
+	uint32_t opcode_menuname;
+	int (*opcode_addgil)(void*);
+	int (*opcode_addseedlevel)(void*);
+	uint8_t* cardgame_deck_id_1DCD7AD;
 	BYTE* current_tutorial_id;
 	uint32_t dmusic_segment_connect_to_dls;
 	uint32_t choice_music;
@@ -1330,7 +1491,8 @@ struct ff8_externals
 	uint32_t (*stop_cdrom)();
 	uint32_t stop_cdrom_field_call;
 	uint32_t stop_cdrom_cleanup_call;
-	uint32_t** savemap;
+	savemap_ff8_field_h** savemap_field;
+	savemap_ff8* savemap;
 	int32_t (*check_game_is_paused)(int32_t);
 	DWORD* is_game_paused;
 	uint32_t sub_470250;
@@ -1368,6 +1530,9 @@ struct ff8_externals
 	uint32_t read_or_uncompress_fs_data;
 	uint32_t lzs_uncompress;
 	void(*free_file_container)(ff8_file_container *);
+	ff8_file_container*(*archive_open)(char*,char*,char*);
+	void(*sub_archive_get_filename)(const char*,char*);
+	char *temp_fs_path_cache;
 	uint32_t field_get_dialog_string;
 	uint32_t set_window_object;
 	ff8_win_obj *windows;
@@ -1387,6 +1552,7 @@ struct ff8_externals
 	uint32_t ff8_draw_icon_or_key4;
 	uint32_t ff8_draw_icon_or_key5;
 	uint32_t ff8_draw_icon_or_key6;
+	uint8_t *battle_boost_cross_icon_display_1D76604;
 	int(*pause_menu)(int);
 	uint32_t init_pause_menu;
 	uint32_t sub_49BB30;
@@ -1411,7 +1577,11 @@ struct ff8_externals
 	uint32_t sub_5391B0;
 	uint32_t sub_534560;
 	uint32_t sub_536C30;
-	uint32_t sub_535640;
+	uint32_t cardgame_func_534340;
+	uint32_t cargame_func_535C90;
+	int(*cardgame_func_534BC0)();
+	uint32_t sub_536CB0;
+	uint8_t **card_texts_off_B96968;
 	uint32_t sub_536C80;
 	uint32_t sub_5366D0;
 	uint32_t sub_539500;
@@ -1422,6 +1592,11 @@ struct ff8_externals
 	uint8_t *cardgame_tim_texture_icons;
 	uint8_t *cardgame_tim_texture_font;
 	uint32_t* is_card_game;
+	uint32_t cardgame_add_card_to_squall_534840;
+	uint32_t cardgame_sub_536DE0;
+	uint32_t cardgame_sub_537110;
+	uint32_t cardgame_update_card_with_location_5347F0;
+	int (*cardgame_sub_535D00)(void*);
 	uint32_t sfx_play_to_current_playing_channel;
 	uint32_t sfx_unload_all;
 	uint32_t sfx_pause_all;
@@ -1461,9 +1636,24 @@ struct ff8_externals
 	uint32_t sub_4A84E0;
 	uint32_t sub_4AD400;
 	uint32_t sub_4BB840;
+	uint32_t battle_check_won_sub_486500;
+	void(*battle_sub_494D40)();
+	uint32_t battle_sub_4877F0;
+	uint32_t battle_sub_48D200;
+	uint32_t battle_ai_opcode_sub_487DF0;
+	int (*battle_get_draw_magic_amount_48FD20)(int, int, int);
+	void(*update_tutorial_info_4AD170)(int);
+	uint32_t sub_48B7E0;
+	void(*sub_4954B0)(int);
+	uint32_t compute_char_stats_sub_495960;
+	int(*compute_char_max_hp_496310)(int, int);
+	int(*get_char_level_4961D0)(int, int);
+	std::span<ff8_char_computed_stats> char_comp_stats_1CFF000;
 	BYTE* battle_current_active_character_id;
 	BYTE* battle_new_active_character_id;
+	WORD* global_battle_encounter_id_1CFF6E0;
 	WORD* battle_encounter_id;
+	BYTE* battle_result_state_1CFF6E7; // 2: escaped, 4: won, 1-3: other type, 5: unknown
 	uint32_t sub_4AB450;
 	uint32_t battle_get_monster_name_sub_495100;
 	uint32_t sub_4AA920;
@@ -1528,10 +1718,45 @@ struct ff8_externals
 	uint32_t scan_text_positions;
 	uint32_t fps_limiter;
 	double *time_volume_change_related_1A78BE0;
-	uint32_t* game_mode_obj_1D9CF88;
 	uint32_t field_vars_stack_1CFE9B8;
 	uint32_t get_card_name;
 	uint32_t card_name_positions;
+	uint32_t drawpoint_messages;
+	int(*opcode_drawpoint_sub_4A0850)(int, int);
+	uint32_t enable_gf_sub_47E480;
+	uint32_t battle_menu_loop_4A2690;
+	uint32_t battle_menu_sub_4A6660;
+	uint32_t battle_menu_sub_4A3D20;
+	uint32_t battle_menu_sub_4A3EE0;
+	int(*battle_menu_add_exp_and_stat_bonus_496CB0)(int, uint16_t);
+	byte* character_data_1CFE74C;
+	uint32_t battle_sub_485160;
+	uint32_t battle_sub_48FE20;
+	uint32_t battle_sub_494410;
+	void (*battle_sub_494AF0)(int, int, int, int);
+	uint32_t engine_reset_viewport_sub_4972D0;
+	uint32_t engine_setviewport_sub_45B4C0;
+	void* (*engine_setviewport_sub_41E070)(int, int, int, int, void*);
+	uint32_t *dword_B7CE28;
+	uint32_t *flag_d3d_renderer_related_dword_1CCFD94;
+	int32_t *ssigpu_viewport_x_dword_1CA89D8;
+	int32_t *ssigpu_viewport_y_dword_1CA89DC;
+	int32_t *ssigpu_viewport_width_dword_B7CBF8;
+	int32_t *ssigpu_viewport_height_dword_B7CBFC;
+	int32_t *current_viewport_x_dword_1A7764C;
+	int32_t *current_viewport_y_dword_1A77648;
+	int32_t *current_viewport_width_dword_1A77654;
+	int32_t *current_viewport_height_dword_1A77650;
+	uint32_t set_render_to_vram_current_screen_flag_before_battle;
+	uint32_t sub_472B30;
+	uint32_t sub_530810;
+	uint32_t sub_533CD0;
+	uint32_t sub_530C30;
+	void (*field_push_mch_vertices_rect_sub_533A90)(int, uint16_t *, int, int);
+	void (*set_current_triangle_sub_45E160)(int, int, int);
+	void (*calc_model_triangle_condition_sub_45EE10)();
+	int *dword_1DC6314;
+	int32_t *calc_model_poly_condition_result_dword_1CA8A70;
 };
 
 void ff8gl_field_78(struct ff8_polygon_set *polygon_set, struct ff8_game_obj *game_object);

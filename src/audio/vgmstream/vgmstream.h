@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //                                                                          //
 //    This file is part of FFNx                                             //
 //                                                                          //
@@ -41,6 +41,7 @@ namespace SoLoud
 	public:
 		VGMSTREAM* mStream;
 		unsigned int mSampleCount;
+		unsigned int mLoopEndSample;
 
 		sample_t* mData;
 
