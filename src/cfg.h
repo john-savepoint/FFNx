@@ -5,7 +5,7 @@
 //    Copyright (C) 2020 myst6re                                            //
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -99,6 +99,7 @@ extern long window_size_x;
 extern long window_size_y;
 extern long internal_resolution_scale;
 extern long aspect_ratio;
+extern bool enable_uncrop;
 extern bool fullscreen;
 extern bool borderless;
 extern long refresh_rate;
@@ -109,20 +110,20 @@ extern bool enable_anisotropic;
 extern bool enable_bilinear;
 extern bool enable_sdf_fonts;
 extern float sdf_pixel_range;
-extern float sdf_thickness;      // Adjusts glyph boldness (0.5 = normal, higher = bolder)
-extern float sdf_shadow_offset;  // Shadow offset in pixels (1.0 = 1 pixel - DEPRECATED, use sdf_shadow_offset_x/y)
-extern float sdf_shadow_opacity; // Shadow transparency (0.0-1.0)
+extern float sdf_thickness;
+extern float sdf_shadow_offset;
+extern float sdf_shadow_opacity;
 
 // SDF Extended Parameters (for debug overlay)
-extern float sdf_shadow_offset_x;     // Shadow X offset in pixels
-extern float sdf_shadow_offset_y;     // Shadow Y offset in pixels
-extern float sdf_shadow_blur;          // Shadow blur/softness (0.0-10.0)
-extern float sdf_outline_width;        // Outline thickness (0.0-5.0)
-extern float sdf_outline_opacity;      // Outline opacity (0.0-1.0)
-extern float sdf_inner_outline_width;  // Inner outline thickness
-extern float sdf_inner_outline_opacity;// Inner outline opacity
-extern float sdf_glow_radius;          // Glow effect radius
-extern float sdf_glow_intensity;       // Glow brightness
+extern float sdf_shadow_offset_x;
+extern float sdf_shadow_offset_y;
+extern float sdf_shadow_blur;
+extern float sdf_outline_width;
+extern float sdf_outline_opacity;
+extern float sdf_inner_outline_width;
+extern float sdf_inner_outline_opacity;
+extern float sdf_glow_radius;
+extern float sdf_glow_intensity;
 
 // SDF Colors
 extern bool sdf_text_color_enable;
@@ -157,6 +158,7 @@ extern bool enable_lighting;
 extern bool prefer_lighting_cpu_calculations;
 extern long game_lighting;
 extern bool enable_time_cycle;
+extern bool enable_external_mesh;
 extern bool enable_worldmap_external_mesh;
 extern bool ff7_external_opening_music;
 extern bool more_debug;
@@ -183,6 +185,7 @@ extern std::vector<std::string> disable_animated_textures_on_field;
 extern long ff7_fps_limiter;
 extern bool ff7_footsteps;
 extern bool ff7_field_center;
+extern bool use_sdl_gamepad;
 extern bool enable_analogue_controls;
 extern bool enable_inverted_vertical_camera_controls;
 extern bool enable_inverted_horizontal_camera_controls;
@@ -201,6 +204,7 @@ extern bool ff8_worldmap_internal_highres_textures;
 extern bool ff8_fix_uv_coords_precision;
 extern bool ff8_external_music_force_original_filenames;
 extern bool ff8_use_gamepad_icons;
+extern bool ff8_always_capture_input;
 extern long ff8_fps_limiter;
 extern std::string app_path;
 extern std::string data_drive;
@@ -211,6 +215,8 @@ extern long external_voice_volume;
 extern long external_ambient_volume;
 extern long ffmpeg_video_volume;
 extern bool ff7_advanced_blinking;
+extern long display_index;
+extern long ff8_high_res_font;
 extern bool char_portrait_anim_enable;
 extern bool title_video_enable;
 extern std::string title_video_path;

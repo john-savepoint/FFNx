@@ -2219,11 +2219,13 @@ struct ff7_field_script_header {
 	char szName[8];			// Field name (never shown)
 };
 
+struct ff7_kawai_opcode_params;
+
 struct field_event_data
 {
-	WORD field_0;
+	WORD apply_kawai;
 	WORD padding_2;
-	DWORD field_4;
+	ff7_kawai_opcode_params* opcode_params;
 	byte field_8;
 	byte padding_9;
 	WORD blink_wait_frames;
@@ -2789,6 +2791,32 @@ struct ff7_model_eye_texture_data
 
 // --------------- end of FF7 imports ---------------
 
+struct ff7_kawai_opcode_params
+{
+	byte param_1;
+	byte param_2;
+	byte param_3;
+	byte param_4;
+	byte param_5;
+	byte param_6;
+	byte param_7;
+	byte param_8;
+	byte param_9;
+	byte param_A;
+	byte param_B;
+	byte param_C;
+	byte param_D;
+	byte param_E;
+	byte param_F;
+	byte param_10;
+	byte param_11;
+	byte param_12;
+	byte param_13;
+	byte param_14;
+	byte param_15;
+	byte param_16;
+};
+
 struct ff7_model_custom_data
 {
 	int has_mouth;
@@ -2799,6 +2827,12 @@ struct ff7_model_custom_data
 	char *right_eye_tex_filename;
 	p_hundred* left_eye_tex;
 	p_hundred* right_eye_tex;
+	byte is_kawai_active;
+	byte do_kawai_repeat;
+	byte init_kawai_opcode;
+	ff7_kawai_opcode_params* init_kawai_params;
+	byte exec_kawai_opcode;
+	ff7_kawai_opcode_params* exec_kawai_params;
 };
 
 struct ff7_channel_6_state
@@ -2845,6 +2879,7 @@ struct ff7_externals
 	DWORD* field_file_section_ptrs;
 	uint32_t* known_field_buffer_size;
 	uint32_t* field_CFF268;
+	uint32_t* field_resuming_from_battle_CFF268;
 	void (*draw_character)(uint32_t, uint32_t, char *, uint32_t, float);
 	uint32_t destroy_field_bk;
 	uint32_t destroy_field_tiles;
@@ -3212,6 +3247,7 @@ struct ff7_externals
 	WORD* field_curr_script_position; //0xCC0CF8
 	byte* field_model_id_array; //0xCBFB70
 	field_event_data** field_event_data_ptr; // 0xCC0B60
+	uint32_t field_calc_fade_color_sub_63AE66;
 	field_animation_data** field_animation_data_ptr; // 0xCFF738
 	WORD* wait_frames_ptr; //0xCC0900
 	char* animation_type_array; //0xCC0980
@@ -3547,6 +3583,8 @@ struct ff7_externals
 	// world stuff
 	uint32_t world_mode_loop_sub_74DB8C;
 	uint32_t world_exit_74BD77;
+	uint32_t world_loop_74BE49;
+	void (**world_dword_DE68FC)();
 	void (*world_exit_destroy_graphics_objects_75A921)();
 	uint32_t world_init_variables_74E1E9;
 	uint32_t world_sub_7641A7;
@@ -3587,6 +3625,7 @@ struct ff7_externals
 	int (*world_get_player_model_id)();
 	int (*world_get_current_key_input_status)();
 	int (*world_get_player_walkmap_type)();
+	int (*world_get_player_walkmap_region)();
 	void(*world_sub_753D00)(vector3<short>*, short);
 	void(*world_update_model_movement_762E87)(int, int);
 	bool (*world_is_player_model_bitmask)(int);

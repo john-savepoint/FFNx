@@ -20,6 +20,8 @@
 //    GNU General Public License for more details.                          //
 /****************************************************************************/
 
+#include <fstream>
+
 #include "lighting.h"
 #include "gl.h"
 #include "globals.h"

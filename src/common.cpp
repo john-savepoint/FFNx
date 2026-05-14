@@ -6,7 +6,7 @@
 //    Copyright (C) 2020 Chris Rizzitello                                   //
 //    Copyright (C) 2020 John Pritchard                                     //
 //    Copyright (C) 2020 Marcin Gomulak                                     //
-//    Copyright (C) 2024 Julian Xhokaxhiu                                   //
+//    Copyright (C) 2026 Julian Xhokaxhiu                                   //
 //    Copyright (C) 2023 Cosmos                                             //
 //                                                                          //
 //    This file is part of FFNx                                             //
@@ -36,6 +36,7 @@
 #include <malloc.h>
 #include <ddraw.h>
 #include <filesystem>
+#include <fstream>
 
 #include "renderer.h"
 #include "hext.h"
@@ -53,6 +54,7 @@
 #include "saveload.h"
 #include "gamepad.h"
 #include "joystick.h"
+#include "sdl_gamepad.h"
 #include "input.h"
 #include "field.h"
 #include "world.h"
@@ -70,6 +72,7 @@
 #include "ff7/widescreen.h"
 #include "ff7/time.h"
 #include "ff7/field/defs.h"
+#include "ff7/field/model.h"
 
 #include "ff8/vram.h"
 #include "ff8/vibration.h"
@@ -98,6 +101,12 @@ struct {
 	uint32_t h;
 } gameWindow[GameWindowState::COUNT];
 
+struct MonitorInfo {
+	RECT rcMonitor;
+	std::string deviceName;
+};
+std::vector<MonitorInfo> monitors;
+
 // global game window handler
 RECT gameWindowRect;
 HINSTANCE gameHinstance;
@@ -118,13 +127,22 @@ uint32_t ff7_do_reset = false;
 // global FF7/FF8 flag, check if is steam edition
 uint32_t steam_edition = false;
 
+// global FF7 flag, check if is FF7 Steam re-release edition
+uint32_t ff7_steam_rerelease_edition = false;
+
+// global FF7/FF8 flag, check if using the steam stock launcher
+uint32_t steam_stock_launcher = false;
+
 // global FF7 flag, check if is eStore edition
 uint32_t estore_edition = false;
+
+// global FF7 flag, check if it is 2026 rerelease
+uint32_t ff7_2026_rerelease = false;
 
 // global FF7 flag, check if is japanese edition ( detected as US )
 uint32_t ff7_japanese_edition = false;
 
-// global FF7 language setting: "en", "ja", "de", "fr", "es"
+// FF7 active language: "en", "ja", "de", "fr", "es"
 std::string ff7_language = "en";
 
 // window dimensions requested by the game, normally 640x480
@@ -179,6 +197,7 @@ char basedir[BASEDIR_LENGTH];
 uint32_t version;
 
 bool xinput_connected = false;
+bool sdl_gamepad_connected = false;
 
 bool simulate_OK_button = false;
 
@@ -281,41 +300,76 @@ void ffnx_log_current_pc_specs()
 	ffnx_info("--- PC SPECS ---\n");
 
 	// CPU
-	auto cpus = hwinfo::getAllCPUs();
-	for (const auto& cpu : cpus) {
-		ffnx_info("   CPU: %s\n", cpu.modelName().c_str());
+	try
+	{
+		auto cpus = hwinfo::getAllCPUs();
+		for (const auto& cpu : cpus) {
+			ffnx_info("   CPU: %s\n", cpu.modelName().c_str());
+		}
+	}
+	catch (const std::exception& e)
+	{
+		ffnx_info("   CPU: Unknown\n");
 	}
 
 	// GPU
-	auto gpus = hwinfo::getAllGPUs();
-	for (auto& gpu : gpus) {
-		uint16_t vendorId = std::stoi(gpu.vendor_id(), 0, 16), deviceId = std::stoi(gpu.device_id(), 0, 16);
-		if (
-			(newRenderer.getCaps()->vendorId == vendorId && newRenderer.getCaps()->deviceId == deviceId) ||
-			(newRenderer.getCaps()->vendorId == vendorId && renderer_backend == RENDERER_BACKEND_OPENGL)
-		)
-			ffnx_info("   GPU: %s (%dMB) - Driver: %s - Backend: %s\n", gpu.name().c_str(), (int)(gpu.memory_Bytes() / 1024.0 / 1024.0), gpu.driverVersion().c_str(), newRenderer.currentRenderer.c_str());
+	try
+	{
+		auto gpus = hwinfo::getAllGPUs();
+		for (auto& gpu : gpus) {
+			uint16_t vendorId = std::stoi(gpu.vendor_id(), 0, 16), deviceId = std::stoi(gpu.device_id(), 0, 16);
+			if (
+				(newRenderer.getCaps()->vendorId == vendorId && newRenderer.getCaps()->deviceId == deviceId) ||
+				(newRenderer.getCaps()->vendorId == vendorId && renderer_backend == RENDERER_BACKEND_OPENGL)
+			)
+				ffnx_info("   GPU: %s (Dedicated: %dMB/Shared: %dMB) [%s]\n", gpu.name().c_str(), (int)(gpu.dedicated_memory_Bytes() / 1024.0 / 1024.0), (int)(gpu.shared_memory_Bytes() / 1024.0 / 1024.0), newRenderer.currentRenderer.c_str());
+		}
+	}
+	catch (const std::exception& e)
+	{
+		ffnx_info("   GPU: Unknown\n");
 	}
 
 	// RAM
-	hwinfo::Memory memory;
-	ffnx_info("   RAM: %dMB/%dMB (Free: %dMB)\n", (int)((memory.total_Bytes() - memory.free_Bytes()) / 1024.0 / 1024.0), (int)(memory.total_Bytes() / 1024.0 / 1024.0), (int)(memory.free_Bytes() / 1024.0 / 1024.0));
+	try
+	{
+		hwinfo::Memory memory;
+		ffnx_info("   RAM: %dMB/%dMB (Free: %dMB)\n", (int)((memory.size() - memory.free()) / 1024.0 / 1024.0), (int)(memory.size() / 1024.0 / 1024.0), (int)(memory.free() / 1024.0 / 1024.0));
+	}
+	catch (const std::exception& e)
+	{
+		ffnx_info("   RAM: Unknown\n");
+	}
 
 	// OS
-	hwinfo::OS os;
-	ffnx_info("    OS: %s %s (build %s)\n", os.name().c_str(), (os.is32bit() ? "32 bit" : "64 bit"), os.version().c_str());
+	try
+	{
+		hwinfo::OS os;
+		ffnx_info("    OS: %s %s (build %s)\n", os.name().c_str(), (os.is32bit() ? "32 bit" : "64 bit"), os.version().c_str());
+	}
+	catch (const std::exception& e)
+	{
+		ffnx_info("   OS: Unknown\n");
+	}
 
 	// WINE+PROTON
 	const char* env_wineloader = std::getenv("WINELOADER");
 	if (env_wineloader != NULL) // Are we running under Wine/Proton?
 	{
-		ffnx_info("  WINE: v%s\n", GetWineVersion());
+		try
+		{
+			ffnx_info("  WINE: v%s\n", GetWineVersion());
 
-		const std::regex proton_regex("([Pp]roton[\\s\\-\\w.()]+)");
-		std::smatch base_match;
-		std::string s_wineloader = std::string(env_wineloader);
-		if (std::regex_search(s_wineloader, base_match, proton_regex))
-			ffnx_info("PROTON: %s\n", base_match[1].str().c_str());
+			const std::regex proton_regex("([Pp]roton[\\s\\-\\w.()]+)");
+			std::smatch base_match;
+			std::string s_wineloader = std::string(env_wineloader);
+			if (std::regex_search(s_wineloader, base_match, proton_regex))
+				ffnx_info("PROTON: %s\n", base_match[1].str().c_str());
+		}
+		catch (const std::exception& e)
+		{
+			ffnx_info("   WINE: Unknown\n");
+		}
 	}
 
 	// End report of PC specs
@@ -491,7 +545,6 @@ void adjust_maximized_client_rect(HWND window, RECT& rect) {
 	// not the whole window rect which extends beyond the monitor.
 	rect = monitor_info.rcWork;
 }
-
 
 bool composition_enabled() {
 	BOOL composition_enabled = FALSE;
@@ -679,10 +732,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case WM_MENUCHAR:
 			if (LOWORD(wParam) == VK_RETURN)
 			{
+				const auto& targetMonitor = monitors[display_index-1];
 				if (fullscreen)
 				{
 					// Bring back the original resolution
-					ChangeDisplaySettingsEx(0, &dmCurrentScreenSettings, 0, CDS_FULLSCREEN, 0);
+					ChangeDisplaySettingsExA(targetMonitor.deviceName.c_str(), &dmCurrentScreenSettings, 0, CDS_FULLSCREEN, 0);
 
 					// Move to window
 					SetWindowLongPtr(gameHwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
@@ -699,7 +753,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					gameWindow[GameWindowState::PRE_FULLSCREEN] = gameWindow[GameWindowState::CURRENT];
 
 					// Bring back the user resolution
-					ChangeDisplaySettingsEx(0, &dmNewScreenSettings, 0, CDS_FULLSCREEN, 0);
+					ChangeDisplaySettingsExA(targetMonitor.deviceName.c_str(), &dmNewScreenSettings, 0, CDS_FULLSCREEN, 0);
 
 					// Move to fullscreen
 					SetWindowLongPtr(gameHwnd, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE);
@@ -736,6 +790,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return common_externals.engine_wndproc(hwnd, uMsg, wParam, lParam);
 }
 
+BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
+	std::vector<MonitorInfo>* monitors = reinterpret_cast<std::vector<MonitorInfo>*>(dwData);
+
+	MONITORINFOEX monitorInfoEx;
+	monitorInfoEx.cbSize = sizeof(MONITORINFOEX);
+
+	if (GetMonitorInfo(hMonitor, &monitorInfoEx)) {
+		bool isPrimary = (monitorInfoEx.dwFlags & MONITORINFOF_PRIMARY) != 0;
+		monitors->push_back({ monitorInfoEx.rcMonitor, monitorInfoEx.szDevice });
+		if (isPrimary && display_index < 1) display_index = monitors->size();
+	}
+
+	return TRUE;
+}
+
 int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 {
 	uint32_t ret = FALSE;
@@ -747,16 +816,17 @@ int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 	WNDCLASSA WndClass;
 
 	// Init Steam API
-	if(steam_edition || enable_steam_achievements)
+	if(enable_steam_achievements)
 	{
+		int app_id = ff8 ? FF8_APPID : (ff7_steam_rerelease_edition ? FF7_RERELEASE_APPID : FF7_APPID);
 		// generate automatically steam_appid.txt
 		if(!steam_edition){
 			std::ofstream steam_appid_file("steam_appid.txt");
-			steam_appid_file << ((ff8) ? FF8_APPID : FF7_APPID);
+			steam_appid_file << app_id;
 			steam_appid_file.close();
 		}
 
-		if (SteamAPI_RestartAppIfNecessary((ff8) ? FF8_APPID : FF7_APPID))
+		if (SteamAPI_RestartAppIfNecessary(app_id))
 		{
 			MessageBoxA(gameHwnd, "Steam Error - Could not find steam_appid.txt containing the app ID of the game.\n", "Steam App ID Wrong", 0);
 			ffnx_error( "Steam Error - Could not find steam_appid.txt containing the app ID of the game.\n" );
@@ -768,14 +838,24 @@ int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 			ffnx_error( "Steam Error - Steam must be running to play this game with achievements (SteamAPI_Init() failed).\n" );
 			return 1;
 		}
-		if (ff8)
+		if (ff8) {
 			g_FF8SteamAchievements = std::make_unique<SteamAchievementsFF8>();
-		else
-			g_FF7SteamAchievements = std::make_unique<SteamAchievementsFF7>();
+		} else if (ff7_steam_rerelease_edition) {
+			g_FF7SteamAchievements = std::make_unique<SteamAchievementsFF7>(false);
+		} else {
+			g_FF7SteamAchievements = std::make_unique<SteamAchievementsFF7>(true);
+		}
 	}
 
-	// fetch current user screen settings
-	EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &dmCurrentScreenSettings);
+	// Enumerate available monitors
+	EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitors));
+	if (display_index > monitors.size()) display_index = monitors.size();
+
+	// Get the target monitor
+	auto& targetMonitor = monitors[display_index-1];
+
+	// fetch current screen settings
+	EnumDisplaySettingsA(targetMonitor.deviceName.c_str(), ENUM_CURRENT_SETTINGS, &dmCurrentScreenSettings);
 
 	// store all settings so we can change only few parameters
 	dmNewScreenSettings = dmCurrentScreenSettings;
@@ -823,12 +903,22 @@ int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 
 		if (fullscreen)
 		{
-			if (ChangeDisplaySettingsEx(0, &dmNewScreenSettings, 0, CDS_FULLSCREEN, 0) != DISP_CHANGE_SUCCESSFUL)
+			if (ChangeDisplaySettingsExA(targetMonitor.deviceName.c_str(), &dmNewScreenSettings, 0, CDS_FULLSCREEN, 0) != DISP_CHANGE_SUCCESSFUL)
 			{
 				MessageBoxA(gameHwnd, "Failed to set the requested fullscreen mode, reverting to the original resolution.\n", "Error", 0);
 				ffnx_error("failed to set fullscreen mode\n");
 				window_size_x = dmCurrentScreenSettings.dmPelsWidth;
 				window_size_y = dmCurrentScreenSettings.dmPelsHeight;
+			}
+			else
+			{
+				// re-fetch current monitors
+				monitors.clear();
+				EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitors));
+				// Get the target monitor
+				targetMonitor = monitors[display_index-1];
+				// update current screen settings
+				dmCurrentScreenSettings = dmNewScreenSettings;
 			}
 		}
 	}
@@ -858,13 +948,14 @@ int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 		else
 			calc_window_size(window_size_x, window_size_y);
 
+		const RECT& monitorRect = targetMonitor.rcMonitor;
 		hWnd = CreateWindowExA(
 			WS_EX_APPWINDOW,
 			VREF(game_object, window_class),
 			VREF(game_object, window_title),
 			fullscreen ? WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS : WS_OVERLAPPEDWINDOW,
-			fullscreen ? 0 : gameWindow[GameWindowState::CURRENT].x,
-			fullscreen ? 0 : gameWindow[GameWindowState::CURRENT].y,
+			monitorRect.left + (fullscreen ? 0 : gameWindow[GameWindowState::CURRENT].x),
+			monitorRect.top + (fullscreen ? 0 : gameWindow[GameWindowState::CURRENT].y),
 			fullscreen ? window_size_x : gameWindow[GameWindowState::CURRENT].w,
 			fullscreen ? window_size_y : gameWindow[GameWindowState::CURRENT].h,
 			0,
@@ -914,7 +1005,7 @@ int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 				replace_function((uint32_t)common_externals.assert_calloc, ext_calloc);
 #endif
 
-				if (widescreen_enabled) widescreen.init();
+				if (widescreen_enabled || enable_uncrop) widescreen.init();
 
 				// Init renderer
 				newRenderer.init();
@@ -945,10 +1036,15 @@ int common_create_window(HINSTANCE hInstance, struct game_obj* game_object)
 				if (ff8)
 				{
 					vram_init();
-					if (ff8_fix_uv_coords_precision) {
-						uv_patch_init();
-					}
+					if (ff8_fix_uv_coords_precision) uv_patch_init();
 					vibration_init();
+					if (widescreen_enabled)
+					{
+						*ff8_externals.current_viewport_x_dword_1A7764C = wide_viewport_x;
+						*ff8_externals.current_viewport_y_dword_1A77648 = wide_viewport_y;
+						*ff8_externals.current_viewport_width_dword_1A77654 = wide_viewport_width;
+						*ff8_externals.current_viewport_height_dword_1A77650 = wide_viewport_height;
+					}
 				}
 
 				exe_data_init();
@@ -1047,7 +1143,7 @@ void common_cleanup(struct game_obj *game_object)
 	}
 
 	// Shutdown Steam API
-	if(steam_edition || enable_steam_achievements)
+	if(enable_steam_achievements)
 		SteamAPI_Shutdown();
 
 	nxAudioEngine.cleanup();
@@ -1087,10 +1183,6 @@ void common_flip(struct game_obj *game_object)
 
 	// Draw with lighting
 	if (!ff8 && enable_lighting) lighting.draw(game_object);
-
-	// Draw naming screen cursor every frame (FF7 Japanese edition)
-	// This is called here instead of the input hook to avoid cursor blinking
-	if (!ff8) ff7_naming_screen_draw_cursor_tick();
 
 	// draw any z-sorted content now that we're done drawing everything else
 	gl_draw_sorted_deferred();
@@ -1228,21 +1320,38 @@ void common_flip(struct game_obj *game_object)
 		}
 	}
 
-	// Enable XInput if a compatible gamepad is detected while playing the game, otherwise continue with native DInput
-	if (!xinput_connected && gamepad.CheckConnection())
+	// if enabled within FFNx.toml: SDL Gamepad will be prioritized over XInput/DirectInput
+	if (use_sdl_gamepad)
 	{
-		if (trace_all || trace_gamepad) ffnx_trace("XInput controller: connected.\n");
-
-		xinput_connected = true;
-
-		// Release any previous DirectInput attached controller, if any
-		joystick.Clean();
+		if (!sdl_gamepad_connected && sdlgamepad.CheckConnection())
+		{
+			if (trace_all || trace_gamepad) ffnx_trace("SDL gamepad: connected (%s)\n", sdlgamepad.GetName());
+			sdl_gamepad_connected = true;
+		}
+		else if (sdl_gamepad_connected && !sdlgamepad.CheckConnection())
+		{
+			if (trace_all || trace_gamepad) ffnx_trace("SDL gamepad: disconnected.\n");
+			sdl_gamepad_connected = false;
+		}
 	}
-	else if (xinput_connected && !gamepad.CheckConnection())
+	else
 	{
-		if (trace_all || trace_gamepad) ffnx_trace("XInput controller: disconnected.\n");
+		// Enable XInput if a compatible gamepad is detected while playing the game, otherwise continue with native DInput
+		if (!xinput_connected && gamepad.CheckConnection())
+		{
+			if (trace_all || trace_gamepad) ffnx_trace("XInput controller: connected.\n");
 
-		xinput_connected = false;
+			xinput_connected = true;
+
+			// Release any previous DirectInput attached controller, if any
+			joystick.Clean();
+		}
+		else if (xinput_connected && !gamepad.CheckConnection())
+		{
+			if (trace_all || trace_gamepad) ffnx_trace("XInput controller: disconnected.\n");
+
+			xinput_connected = false;
+		}
 	}
 
 	frame_counter++;
@@ -1252,6 +1361,9 @@ void common_flip(struct game_obj *game_object)
 
 	// Update day night time cycle
 	if (!ff8 && enable_time_cycle) ff7::time.update();
+
+	// Handle main menu background music
+	handle_mainmenu_playback();
 
 	// FF8 does not clear the screen properly in the card game module
 	if (ff8)
@@ -1276,6 +1388,7 @@ void common_flip(struct game_obj *game_object)
 				{
 					// Skip reset on these mode(s)
 					case MODE_MENU:
+					case MODE_MAIN_MENU:
 					case MODE_GAMEOVER:
 					case MODE_CREDITS:
 						ff7_do_reset = false;
@@ -1294,11 +1407,11 @@ void common_flip(struct game_obj *game_object)
 		ff7_handle_ambient_playback();
 		ff7_handle_voice_playback();
 		ff7_handle_wmode_reset();
-		ff7::field::ff7_field_handle_blink_reset();
+		ff7::field::ff7_handle_KAWAI_reset();
 	}
 
 	// Steamworks SDK API run callbacks
-	if(steam_edition || enable_steam_achievements)
+	if(enable_steam_achievements)
 		SteamAPI_RunCallbacks();
 
 }
@@ -1316,7 +1429,7 @@ void common_clear(uint32_t clear_color, uint32_t clear_depth, uint32_t unknown, 
 	if (!ff8 && enable_lighting) newRenderer.clearShadowMap();
 
 	newRenderer.setClearFlags(
-		clear_color || mode == MODE_MENU || mode == MODE_CONDOR,
+		clear_color || mode == MODE_MENU || mode == MODE_MAIN_MENU || mode == MODE_CONDOR,
 		clear_depth
 	);
 }
@@ -1845,6 +1958,7 @@ struct texture_set *common_load_texture(struct texture_set *_texture_set, struct
 					newRenderer.deleteTexture(VREF(texture_set, texturehandle[idx]));
 
 				memset(VREF(texture_set, texturehandle), 0, VREF(texture_set, ogl.gl_set->textures) * sizeof(uint32_t));
+				VREF(texture_set, ogl.gl_set->default_texture_id) = 0;
 
 				memcpy(VREF(tex_header, old_palette_data), tex_format->palette_data, 4 * tex_format->palette_size);
 			}
@@ -2078,12 +2192,13 @@ uint32_t common_write_palette(uint32_t source_offset, uint32_t size, void *sourc
 			}
 
 			// if there's anything left at this point, reload the affected textures
-			if(palettes && !VREF(texture_set, ogl.external))
+			if(palettes)
 			{
 				for (uint32_t idx = 0; idx < palettes; idx++)
 					newRenderer.deleteTexture(VREF(texture_set, texturehandle[palette_index + idx]));
 
 				memset(VREFP(texture_set, texturehandle[palette_index]), 0, palettes * sizeof(uint32_t));
+				VREF(texture_set, ogl.gl_set->default_texture_id) = 0;
 			}
 
 			stats.texture_reloads++;
@@ -2174,8 +2289,8 @@ void internal_set_renderstate(uint32_t state, uint32_t option, struct game_obj *
 
 		// cull face, does this ever change?
 		case V_CULLFACE:
-			if (option) newRenderer.setCullMode(RendererCullMode::FRONT);
-			else newRenderer.setCullMode(RendererCullMode::BACK);
+			if (!option) newRenderer.setCullMode(RendererCullMode::BACK);
+			else newRenderer.setCullMode(RendererCullMode::FRONT);
 			current_state.cullface = option;
 			break;
 
@@ -2742,13 +2857,7 @@ void get_data_lang_path(PCHAR buffer)
 	case VERSION_FF7_102_US:
 	case VERSION_FF8_12_US_NV:
 	case VERSION_FF8_12_US_EIDOS_NV:
-		// Use ff7_language setting for FF7 multi-language support
-		// Supports: en, ja, de, fr, es
-		if (!ff8 && !ff7_language.empty())
-		{
-			strcat(buffer, ff7_language.c_str());
-		}
-		else if (ff7_japanese_edition)
+		if (ff7_japanese_edition)
 			strcat(buffer, "ja");
 		else
 			strcat(buffer, "en");
@@ -2821,7 +2930,7 @@ void get_userdata_path(PCHAR buffer, size_t bufSize, bool isSavegameFile)
 uint32_t ff7_get_inserted_cd(void) {
 	int ret = 1;
 
-	if(steam_edition || enable_steam_achievements){
+	if(enable_steam_achievements){
 		if (trace_all || trace_achievement)
 			ffnx_trace("inserted CD: %d, requiredCD: %d\n", *ff7_externals.insertedCD, *ff7_externals.requiredCD);
 
@@ -2910,7 +3019,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		ffnx_info("FFNx driver version " VERSION "\n");
 		version = get_version();
-
 		if (version >= VERSION_FF8_12_US)
 		{
 			ff8 = true;
@@ -2934,7 +3042,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		if (!version)
 		{
-			ffnx_error("no compatible version found\n");
+			ffnx_unexpected("no compatible version found\n");
 			MessageBoxA(NULL, "Your ff7.exe or ff8.exe is incompatible with this driver and will exit after this message.\n"
 				"Possible reasons for this error:\n"
 				" - You have the faulty \"1.4 XP Patch\" for FF7.\n"
@@ -2944,7 +3052,16 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 				" - You have an unsupported translation of FF8. (US English, French, German, Spanish, Italian and Japanese versions are currently supported)\n"
 				" - You have a conflicting patch applied.\n\n"
 				, "Error", MB_ICONERROR | MB_OK);
-			exit(1);
+			return FALSE;
+		}
+
+		bool is_genuine_steam_api = isFileSigned("steam_api.dll");
+		if (!is_genuine_steam_api) is_genuine_steam_api = sha1_file("steam_api.dll") == "03bd9f3e352553a0af41f5fe006f6249a168c243";
+		if (!is_genuine_steam_api)
+		{
+			ffnx_unexpected("Invalid steam_api.dll detected. Please ensure your FFNx installation is not corrupted or tampered by unauthorized software.\n");
+			MessageBoxA(NULL, "Invalid steam_api.dll detected. Please ensure your FFNx installation is not corrupted or tampered by unauthorized software.", "Error", MB_ICONERROR | MB_OK);
+			return FALSE;
 		}
 
 		read_cfg();
@@ -2962,6 +3079,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		GetModuleFileNameA((HMODULE)hinstDLL, dllName, sizeof(dllName));
 		_strlwr(dllName);
 
+		bool macOsLauncher = isMacOSLauncher();
+
 		if (!ff8)
 		{
 			common_externals.winmain = get_relative_call(common_externals.start, 0x14D);
@@ -2970,12 +3089,32 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 			if (strstr(dllName, "af3dn.p") != NULL)
 			{
-				if (strstr(parentName, "ff7_ja.exe") != NULL) ff7_japanese_edition = true;
+				ff7_japanese_edition = strstr(parentName, "ff7_ja.exe") != NULL;
 
+				if (strstr(basedir, "workingdir") != NULL)
+				{
+					if (fileExists("../../steam_api64.dll"))
+					{
+						ff7_steam_rerelease_edition = true;
+
+						ffnx_trace("Detected Steam Rerelease edition.\n");
+					}
+					else if(fileExists("../../goggame-1698970154.info"))
+						ffnx_trace("Detected GOG edition.\n");
+					else
+						ffnx_trace("Detected Windows Store edition.\n");
+
+					ff7_2026_rerelease = true;
+				}
 				// Steam edition is usually installed in this path
-				if (strstr(basedir, "steamapps") != NULL) {
-					ffnx_trace("Detected Steam edition.\n");
+				else if (strstr(basedir, "steamapps") != NULL)
+				{
+					ffnx_trace("Detected Steam 2013 edition.\n");
+
 					steam_edition = true;
+					enable_steam_achievements = !macOsLauncher;
+
+					if (macOsLauncher) replace_function(getProcessEntryPoint(), (void*)common_externals.start);
 
 					// Read ff7sound.cfg
 					char ff7soundPath[260]{ 0 };
@@ -3091,9 +3230,19 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 			if (strstr(dllName, "af3dn.p") != NULL)
 			{
-				ffnx_trace("Detected Steam edition.\n");
+				ffnx_trace("Detected Steam 2013 edition.\n");
 
 				steam_edition = true;
+				enable_steam_achievements = !macOsLauncher;
+
+				if (macOsLauncher) replace_function(getProcessEntryPoint(), (void*)ff8_externals.start);
+
+				// Detect if FF8 Stock Launcher
+				if (contains(getCopyrightInfoFromExe("FF8_Launcher.exe"), "SQUARE ENIX CO., LTD"))
+				{
+					steam_stock_launcher = true;
+					ffnx_trace("Detected Steam stock launcher.\n");
+				}
 
 				// Steam edition contains movies unpacked
 				enable_ffmpeg_videos = true;
@@ -3273,7 +3422,12 @@ __declspec(dllexport) LSTATUS __stdcall dotemuRegQueryValueExA(HKEY hKey, LPCSTR
 		lpData[0] = 0x0;
 	}
 	/* FF8 */
-	else if (strcmp(lpValueName, "GraphicsGUID") == 0 || strcmp(lpValueName, "SoundGUID") == 0 || strcmp(lpValueName, "MIDIGUID") == 0)
+	else if (strcmp(lpValueName, "MIDIGUID") == 0)
+	{
+		uint32_t microsoft_synthesizer[4] = {0x58C2B4D0, 0x11D146E7, 0xA000AC89, 0x294105C9};
+		memcpy(lpData, microsoft_synthesizer, 16);
+	}
+	else if (strcmp(lpValueName, "GraphicsGUID") == 0 || strcmp(lpValueName, "SoundGUID") == 0)
 	{
 		memcpy(lpData, buf, 16);
 	}
@@ -3311,7 +3465,7 @@ __declspec(dllexport) HANDLE __stdcall dotemuCreateFileA(LPCSTR lpFileName, DWOR
 	if (strstr(lpFileName, "CD:") != NULL)
 	{
 		CHAR newPath[MAX_PATH]{ 0 };
-		uint8_t requiredDisk = *(uint8_t*)(*(DWORD*)ff8_externals.savemap + 0xCC);
+		uint8_t requiredDisk = (*ff8_externals.savemap_field)->curr_disk;
 		CHAR diskAsChar[2];
 
 		itoa(requiredDisk, diskAsChar, 10);
