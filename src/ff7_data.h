@@ -126,6 +126,8 @@ inline void ff7_find_externals(struct ff7_game_obj* game_object)
 	field_main_loop = get_absolute_value(main_loop, 0x8F8);
 	ff7_set_main_loop(MODE_FIELD, field_main_loop);
 	worldmap_main_loop = get_absolute_value(main_loop, 0x977);
+	ff7_externals.world_loop_74BE49 = worldmap_main_loop;
+	ff7_externals.world_dword_DE68FC = (void(**)())get_absolute_value(ff7_externals.world_loop_74BE49, 0x123);
 	ff7_set_main_loop(MODE_WORLDMAP, worldmap_main_loop);
 	chocobo_main_loop = get_absolute_value(main_loop, 0x9C5);
 	ff7_set_main_loop(MODE_CHOCOBO, chocobo_main_loop);
@@ -251,6 +253,7 @@ inline void ff7_find_externals(struct ff7_game_obj* game_object)
 	ff7_externals.field_file_section_ptrs = (DWORD*)get_absolute_value((uint32_t)ff7_externals.read_field_file, 0x187);
 	ff7_externals.known_field_buffer_size = (uint32_t*)get_absolute_value((uint32_t)ff7_externals.read_field_file, 0xA4);
 	ff7_externals.field_CFF268 = (uint32_t*)get_absolute_value((uint32_t)ff7_externals.read_field_file, 0xB);
+	ff7_externals.field_resuming_from_battle_CFF268 = ff7_externals.field_CFF268;
 
 	ff7_externals.lgp_fds = (FILE **)get_absolute_value(ff7_externals.lgp_seek_file, 0x17);
 
@@ -1198,6 +1201,7 @@ inline void ff7_find_externals(struct ff7_game_obj* game_object)
 	ff7_externals.world_sub_75EF46 = get_relative_call(ff7_externals.world_mode_loop_sub_74DB8C, 0x44E);
 	ff7_externals.world_sub_767540 = get_relative_call(ff7_externals.world_mode_loop_sub_74DB8C, 0x5BE);
 	ff7_externals.world_sub_767641 = get_relative_call(ff7_externals.world_sub_767540, 0xCB);
+	ff7_externals.world_get_player_walkmap_region = (int(*)())get_relative_call(ff7_externals.world_sub_767641, 0x2B);
 	ff7_externals.get_world_encounter_rate = (int(*)())get_relative_call(ff7_externals.world_sub_767641, 0x110);
 	ff7_externals.update_world_snake_position_7564CD = get_relative_call(ff7_externals.run_world_snake_ai_script_7562FF, 0x151);
 	ff7_externals.is_update_snake_enabled_7562A9 = get_relative_call(ff7_externals.run_world_snake_ai_script_7562FF, 0x12);

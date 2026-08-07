@@ -1,179 +1,183 @@
 {
-  "name": "ffnx",
-  "version": "1.24.3",
-  "builtin-baseline": "c3867e714dd3a51c272826eea77267876517ed99",
-  "dependencies": [
-    "bgfx",
-    {
-      "name": "ffmpeg",
-      "default-features": false,
-      "features": [
-        "avcodec",
-        "avdevice",
-        "avfilter",
-        "avformat",
-        "avresample",
-        "postproc",
-        "swresample",
-        "swscale",
-        "amf",
-        "opencl",
-        "qsv",
-        "gpl",
-        "version3",
-        "dav1d",
-        "opus",
-        "speex",
-        "theora",
-        "vorbis",
-        "vpx",
-        "x264",
-        "x265"
-      ],
-      "platform": "windows"
-    },
-    "imgui",
-    "libpng",
-    {
-      "name": "directxtex",
-      "default-features": false,
-      "features": []
-    },
-    {
-      "name": "mimalloc",
-      "default-features": false,
-      "features": [
-        "override",
-        "secure"
-      ]
-    },
-    "openpsf",
-    "pugixml",
-    "soloud",
-    "stackwalker",
-    "tomlplusplus",
-    "vgmstream",
-    "steamworkssdk",
-    "xxhash",
-    "lz4",
-    {
-      "name": "cpuinfo",
-      "default-features": false,
-      "features": [
-        "tools"
-      ]
-    },
-    "cmakerc",
-    "cgltf",
-    "hwinfo",
-    "cryptopp",
-    "sdl3"
-  ],
-  "overrides": [
-    {
-      "name": "bgfx",
-      "version": "1.0.0",
-      "port-version": 0
-    },
-    {
-      "name": "ffmpeg",
-      "version": "7.1.2",
-      "port-version": 5
-    },
-    {
-      "name": "imgui",
-      "version": "1.92.6",
-      "port-version": 0
-    },
-    {
-      "name": "libpng",
-      "version": "1.6.55",
-      "port-version": 0
-    },
-    {
-      "name": "directxtex",
-      "version": "2025-10-27",
-      "port-version": 0
-    },
-    {
-      "name": "mimalloc",
-      "version": "3.2.8",
-      "port-version": 0
-    },
-    {
-      "name": "openpsf",
-      "version": "1.3.0",
-      "port-version": 0
-    },
-    {
-      "name": "pugixml",
-      "version": "1.15",
-      "port-version": 1
-    },
-    {
-      "name": "soloud",
-      "version": "1.0.0",
-      "port-version": 0
-    },
-    {
-      "name": "stackwalker",
-      "version": "2023-06-24",
-      "port-version": 0
-    },
-    {
-      "name": "tomlplusplus",
-      "version": "3.4.0",
-      "port-version": 1
-    },
-    {
-      "name": "vgmstream",
-      "version": "1.0.0",
-      "port-version": 0
-    },
-    {
-      "name": "steamworkssdk",
-      "version": "1.23.0",
-      "port-version": 0
-    },
-    {
-      "name": "xxhash",
-      "version": "0.8.3",
-      "port-version": 0
-    },
-    {
-      "name": "lz4",
-      "version": "1.10.0",
-      "port-version": 0
-    },
-    {
-      "name": "cpuinfo",
-      "version": "2025-09-06",
-      "port-version": 0
-    },
-    {
-      "name": "cmakerc",
-      "version": "2023-07-24",
-      "port-version": 0
-    },
-    {
-      "name": "cgltf",
-      "version": "1.15",
-      "port-version": 0
-    },
-    {
-      "name": "hwinfo",
-      "version": "1.0.0",
-      "port-version": 0
-    },
-    {
-      "name": "cryptopp",
-      "version": "2026-03-02",
-      "port-version": 0
-    },
-    {
-      "name": "sdl3",
-      "version": "3.4.2",
-      "port-version": 0
-    }
-  ]
+    "name":  "ffnx",
+    "version":  "1.24.3",
+    "builtin-baseline":  "c3867e714dd3a51c272826eea77267876517ed99",
+    "dependencies":  [
+                         "bgfx",
+                         {
+                             "default-features":  false,
+                             "name":  "ffmpeg",
+                             "features":  [
+                                              "avcodec",
+                                              "avdevice",
+                                              "avfilter",
+                                              "avformat",
+                                              "avresample",
+                                              "postproc",
+                                              "swresample",
+                                              "swscale",
+                                              "amf",
+                                              "gpl",
+                                              "version3",
+                                              "dav1d",
+                                              "x264",
+                                              "x265",
+                                              "speex"
+                                          ],
+                             "platform":  "windows"
+                         },
+                         "imgui",
+                         "libpng",
+                         {
+                             "name":  "directxtex",
+                             "default-features":  false,
+                             "features":  [
+
+                                          ]
+                         },
+                         {
+                             "name":  "mimalloc",
+                             "default-features":  false,
+                             "features":  [
+                                              "override",
+                                              "secure"
+                                          ]
+                         },
+                         "openpsf",
+                         "pugixml",
+                         "soloud",
+                         "stackwalker",
+                         "tomlplusplus",
+                         {
+                             "default-features":  false,
+                             "name":  "vgmstream",
+                             "features":  [
+                                              "mpg123",
+                                              "vorbis",
+                                              "ffmpeg"
+                                          ]
+                         },
+                         "steamworkssdk",
+                         "xxhash",
+                         "lz4",
+                         {
+                             "name":  "cpuinfo",
+                             "default-features":  false,
+                             "features":  [
+                                              "tools"
+                                          ]
+                         },
+                         "cmakerc",
+                         "cgltf",
+                         "hwinfo",
+                         "cryptopp",
+                         "sdl3"
+                     ],
+    "overrides":  [
+                      {
+                          "name":  "bgfx",
+                          "version":  "1.0.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "ffmpeg",
+                          "version":  "7.1.2",
+                          "port-version":  5
+                      },
+                      {
+                          "name":  "imgui",
+                          "version":  "1.92.6",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "libpng",
+                          "version":  "1.6.55",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "directxtex",
+                          "version":  "2025-10-27",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "mimalloc",
+                          "version":  "3.2.8",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "openpsf",
+                          "version":  "1.3.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "pugixml",
+                          "version":  "1.15",
+                          "port-version":  1
+                      },
+                      {
+                          "name":  "soloud",
+                          "version":  "1.0.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "stackwalker",
+                          "version":  "2023-06-24",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "tomlplusplus",
+                          "version":  "3.4.0",
+                          "port-version":  1
+                      },
+                      {
+                          "name":  "vgmstream",
+                          "version":  "1.0.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "steamworkssdk",
+                          "version":  "1.23.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "xxhash",
+                          "version":  "0.8.3",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "lz4",
+                          "version":  "1.10.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "cpuinfo",
+                          "version":  "2025-09-06",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "cmakerc",
+                          "version":  "2023-07-24",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "cgltf",
+                          "version":  "1.15",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "hwinfo",
+                          "version":  "1.0.0",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "cryptopp",
+                          "version":  "2026-03-02",
+                          "port-version":  0
+                      },
+                      {
+                          "name":  "sdl3",
+                          "version":  "3.4.2",
+                          "port-version":  0
+                      }
+                  ]
 }

@@ -11,6 +11,12 @@ vcpkg_from_github(OUT_SOURCE_PATH SOURCE_DIR
     SHA512 4a8e4a6b4847825dac0b30ee519cdd6d222d215cd80db08585e3df624637991369a9e8328bdbb082c3cecacb6a084e18334d2350328b895c47c0614b8f87bb7d
 )
 
+# Patch platform.h to lower MSVC requirement from 1935 to 1929 for VS2019 compatibility
+vcpkg_replace_string("${SOURCE_DIR}/include/bx/platform.h" 
+    "BX_COMPILER_MSVC >= 1935" 
+    "BX_COMPILER_MSVC >= 1929")
+
+
 # Set up GENie (custom project generator)
 
 if(VCPKG_CRT_LINKAGE STREQUAL dynamic)
@@ -117,3 +123,4 @@ endif()
 file(INSTALL "${CMAKE_CURRENT_LIST_DIR}/usage" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}")
 configure_file(${CMAKE_CURRENT_LIST_DIR}/FindBX.cmake.in ${CURRENT_PACKAGES_DIR}/share/${PORT}/FindBX.cmake @ONLY)
 file(COPY ${CMAKE_CURRENT_LIST_DIR}/vcpkg-cmake-wrapper.cmake DESTINATION ${CURRENT_PACKAGES_DIR}/share/${PORT})
+

@@ -10,6 +10,12 @@ vcpkg_from_github(OUT_SOURCE_PATH BX_SOURCE_DIR
     SHA512 4a8e4a6b4847825dac0b30ee519cdd6d222d215cd80db08585e3df624637991369a9e8328bdbb082c3cecacb6a084e18334d2350328b895c47c0614b8f87bb7d
 )
 
+
+# Patch bx platform.h to lower MSVC requirement from 1935 to 1929 for VS2019 compatibility
+vcpkg_replace_string("${BX_SOURCE_DIR}/include/bx/platform.h"
+    "BX_COMPILER_MSVC >= 1935"
+    "BX_COMPILER_MSVC >= 1929")
+
 vcpkg_from_github(OUT_SOURCE_PATH BIMG_SOURCE_DIR
     REPO "julianxhokaxhiu/bimg"
     HEAD_REF master
